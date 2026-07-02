@@ -11,7 +11,9 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),
       });
-      return r.ok;
+      let body = null;
+      try { body = await r.json(); } catch {}
+      return { ok: r.ok, status: r.status, error: body && body.error };
     },
     async logout() {
       await fetch('/api/logout', { method: 'POST' });
@@ -228,12 +230,23 @@
     const pw = elLoginPw.value;
     elLoginPw.value = '';
     if (!pw) return;
-    const ok = await api.login(pw);
-    if (!ok) { elLoginErr.textContent = 'Wrong password.'; return; }
+    const res = await api.login(pw);
+    if (!res.ok) {
+      if (res.status === 500 || res.error === 'server-config') {
+        elLoginErr.textContent = 'Server not configured — set APP_PASSWORD + APP_SECRET env vars and redeploy.';
+      } else if (res.status === 401 || res.error === 'invalid') {
+        elLoginErr.textContent = 'Wrong password.';
+      } else if (res.status === 405) {
+        elLoginErr.textContent = 'Login endpoint not reachable (405). Check the deployment.';
+      } else {
+        elLoginErr.textContent = `Login failed (HTTP ${res.status}).`;
+      }
+      return;
+    }
     try {
-      const res = await api.getState();
-      if (!res.authed) { elLoginErr.textContent = 'Session error.'; return; }
-      enterApp(res.state);
+      const res2 = await api.getState();
+      if (!res2.authed) { elLoginErr.textContent = 'Session error.'; return; }
+      enterApp(res2.state);
     } catch {
       elLoginErr.textContent = 'Could not reach server.';
     }
