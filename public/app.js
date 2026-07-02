@@ -47,6 +47,7 @@
     currentTaskId: null,
     notes: '',
     completedPomodoros: 0,
+    sound: 'chime',
     updatedAt: 0,
   };
 
@@ -108,6 +109,8 @@
   const elBgClear = $('bg-clear');
   const elBgHint = $('bg-hint');
   const elBgOverlay = $('bg-overlay');
+  const elSoundSelect = $('sound-select');
+  const elSoundPreview = $('sound-preview');
 
   // ---------- Background presets ----------
   const PRESETS = [
@@ -153,6 +156,7 @@
       currentTaskId: state.currentTaskId,
       notes: state.notes,
       completedPomodoros: state.completedPomodoros,
+      sound: state.sound,
       updatedAt: state.updatedAt,
     };
   }
@@ -295,7 +299,7 @@
     clearInterval(tickHandle);
     tickHandle = null;
     elStart.textContent = 'Start';
-    beep();
+    playSound();
     if (mode === 'pomodoro') {
       state.completedPomodoros = (state.completedPomodoros || 0) + 1;
       if (state.currentTaskId) {
@@ -347,24 +351,71 @@
   }
 
   // ---------- Sound ----------
+  const SOUNDS = [
+    { id: 'chime',    name: 'Chime' },
+    { id: 'bell',     name: 'Temple bell' },
+    { id: 'marimba',  name: 'Marimba' },
+    { id: 'digital',  name: 'Digital beep' },
+    { id: 'soft',     name: 'Soft tone' },
+    { id: 'none',     name: 'None' },
+  ];
+
   let audioCtx = null;
-  function beep() {
+  function ctx() {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      audioCtx = new AC();
+    }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {});
+    }
+    return audioCtx;
+  }
+
+  function tone({ freq, type = 'sine', start, dur, gain = 0.2, glideTo }) {
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, start);
+    if (glideTo) o.frequency.exponentialRampToValueAtTime(glideTo, start + dur);
+    g.gain.setValueAtTime(0.0001, start);
+    g.gain.linearRampToValueAtTime(gain, start + Math.min(0.02, dur * 0.2));
+    g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+    o.connect(g).connect(audioCtx.destination);
+    o.start(start);
+    o.stop(start + dur + 0.02);
+  }
+
+  const SYNTHS = {
+    chime(t) {
+      [880, 660, 880].forEach((f, i) => tone({ freq: f, type: 'sine', start: t + i * 0.18, dur: 0.16, gain: 0.18 }));
+    },
+    bell(t) {
+      // Rich strike: fundamental + overtone, long exponential decay.
+      tone({ freq: 392, type: 'triangle', start: t, dur: 1.4, gain: 0.22 });
+      tone({ freq: 784, type: 'sine', start: t, dur: 1.2, gain: 0.10 });
+      tone({ freq: 1176, type: 'sine', start: t, dur: 0.9, gain: 0.05 });
+    },
+    marimba(t) {
+      [523, 659].forEach((f, i) => tone({ freq: f, type: 'sine', start: t + i * 0.12, dur: 0.18, gain: 0.20 }));
+    },
+    digital(t) {
+      [880, 880, 1320].forEach((f, i) => tone({ freq: f, type: 'square', start: t + i * 0.13, dur: 0.08, gain: 0.12 }));
+    },
+    soft(t) {
+      tone({ freq: 523, type: 'sine', start: t, dur: 0.6, gain: 0.18, glideTo: 392 });
+    },
+    none() {},
+  };
+
+  function playSound() {
     try {
-      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-      const t = audioCtx.currentTime;
-      [880, 660, 880].forEach((freq, i) => {
-        const o = audioCtx.createOscillator();
-        const g = audioCtx.createGain();
-        o.type = 'sine';
-        o.frequency.value = freq;
-        const start = t + i * 0.18;
-        g.gain.setValueAtTime(0, start);
-        g.gain.linearRampToValueAtTime(0.18, start + 0.02);
-        g.gain.exponentialRampToValueAtTime(0.001, start + 0.16);
-        o.connect(g).connect(audioCtx.destination);
-        o.start(start);
-        o.stop(start + 0.16);
-      });
+      const c = ctx();
+      if (!c) return;
+      const id = state.sound || 'chime';
+      const fn = SYNTHS[id] || SYNTHS.chime;
+      fn(c.currentTime);
     } catch {}
   }
 
@@ -543,17 +594,32 @@
   });
 
   // ---------- Settings modal ----------
+  function populateSoundSelect() {
+    elSoundSelect.innerHTML = '';
+    SOUNDS.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.name;
+      elSoundSelect.append(opt);
+    });
+  }
   function openSettings() {
     elDurPomodoro.value = state.durations.pomodoro;
     elDurShort.value = state.durations.short;
     elDurLong.value = state.durations.long;
     elDurInterval.value = state.durations.interval;
+    elSoundSelect.value = state.sound || 'chime';
     elSettingsModal.hidden = false;
   }
   function closeSettings() { elSettingsModal.hidden = true; }
   elSettingsBtn.addEventListener('click', openSettings);
   elSettingsClose.addEventListener('click', closeSettings);
   elSettingsModal.addEventListener('click', (e) => { if (e.target === elSettingsModal) closeSettings(); });
+
+  elSoundPreview.addEventListener('click', () => {
+    state.sound = elSoundSelect.value;
+    playSound();
+  });
 
   elSettingsSave.addEventListener('click', () => {
     const clamp = (v, lo, hi, def) => {
@@ -565,6 +631,7 @@
     state.durations.short    = clamp(elDurShort.value, 1, 60, DEFAULTS.durations.short);
     state.durations.long     = clamp(elDurLong.value, 1, 60, DEFAULTS.durations.long);
     state.durations.interval = clamp(elDurInterval.value, 2, 12, DEFAULTS.durations.interval);
+    state.sound = elSoundSelect.value;
     if (!running) reset();
     schedulePush();
     closeSettings();
@@ -627,6 +694,7 @@
   // ---------- Init ----------
   applyModeClass();
   setMode('pomodoro');
+  populateSoundSelect();
   renderTime();
   tryAutoLogin();
 })();
