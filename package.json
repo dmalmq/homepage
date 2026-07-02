@@ -1,0 +1,13 @@
+{
+  "name": "local-pomodoro-page",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Self-hostable Pomodoro page with cross-device sync.",
+  "dependencies": {
+    "@vercel/postgres": "^0.10.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

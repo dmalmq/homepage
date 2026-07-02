@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pomodoro</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div id="bg-overlay"></div>
+
+  <!-- Login overlay -->
+  <div id="login-overlay" class="login-overlay" hidden>
+    <form id="login-form" class="login-card" autocomplete="on">
+      <h1>Pomodoro</h1>
+      <input id="login-pw" type="password" placeholder="Password" autocomplete="current-password" autofocus />
+      <button type="submit" class="ctrl-btn primary">Unlock</button>
+      <div id="login-err" class="login-err"></div>
+    </form>
+  </div>
+
+  <!-- App shell (hidden until authed) -->
+  <div id="app" hidden>
+
+  <!-- Settings gear -->
+  <button id="settings-btn" class="icon-btn top-right" aria-label="Settings" title="Settings">
+    <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M19.14 12.94a7.5 7.5 0 0 0 .05-.94 7.5 7.5 0 0 0-.05-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54A.5.5 0 0 0 13.84 0h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.5.5 0 0 0-.61.22L2.6 6.18a.5.5 0 0 0 .12.64l2.03 1.58c-.03.31-.05.62-.05.94s.02.63.05.94L2.72 11.9a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.31.61.22l2.39-.96c.49.38 1.03.7 1.62.94l.36 2.54c.05.24.26.42.5.42h3.84c.24 0 .45-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.09.48 0 .61-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"/></svg>
+  </button>
+
+  <!-- Current task chip -->
+  <div id="current-task" class="current-task" hidden>
+    <span id="current-task-label">No task selected</span>
+  </div>
+
+  <!-- Main timer -->
+  <main id="timer-card" class="timer-card">
+    <div class="mode-tabs">
+      <button class="mode-tab active" data-mode="pomodoro">Pomodoro</button>
+      <button class="mode-tab" data-mode="short">Short Break</button>
+      <button class="mode-tab" data-mode="long">Long Break</button>
+    </div>
+
+    <div class="ring-wrap">
+      <svg class="progress-ring" viewBox="0 0 200 200">
+        <circle class="ring-bg" cx="100" cy="100" r="90" />
+        <circle id="ring-progress" class="ring-fg" cx="100" cy="100" r="90" />
+      </svg>
+      <div class="time-display">
+        <span id="time-text">25:00</span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="start-btn" class="ctrl-btn primary">Start</button>
+      <button id="reset-btn" class="ctrl-btn">Reset</button>
+      <button id="fs-btn" class="ctrl-btn icon" aria-label="Fullscreen" title="Fullscreen">
+        <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+      </button>
+    </div>
+  </main>
+
+  <!-- Bottom-left icon cluster -->
+  <div class="dock">
+    <button id="tasks-toggle" class="icon-btn" aria-label="Tasks" title="Tasks">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M3 5h2v2H3V5zm0 4h2v2H3V9zm0 4h2v2H3v-2zm0 4h2v2H3v-2zM7 5h14v2H7V5zm0 4h14v2H7V9zm0 4h14v2H7v-2zm0 4h14v2H7v-2z"/></svg>
+    </button>
+    <button id="notes-toggle" class="icon-btn" aria-label="Notes" title="Notes">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9l7-7V5a2 2 0 0 0-2-2zm-6 16v-5h5l-5 5z"/></svg>
+    </button>
+  </div>
+
+  <!-- Tasks panel -->
+  <section id="tasks-panel" class="panel" hidden>
+    <div class="panel-head">
+      <h2>Tasks Queue</h2>
+      <button class="panel-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="task-input-row">
+      <input id="task-input" type="text" placeholder="Add a task and press Enter" maxlength="120" />
+    </div>
+    <ul id="task-list" class="task-list"></ul>
+  </section>
+
+  <!-- Notes panel -->
+  <section id="notes-panel" class="panel" hidden>
+    <div class="panel-head">
+      <h2>Notes</h2>
+      <button class="panel-close" aria-label="Close">&times;</button>
+    </div>
+    <textarea id="notes-area" placeholder="Jot something down..." spellcheck="false"></textarea>
+    <div class="notes-status" id="notes-status">Saved</div>
+  </section>
+
+  <!-- Settings modal -->
+  <div id="settings-modal" class="modal" hidden>
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2>Settings</h2>
+        <button id="settings-close" aria-label="Close">&times;</button>
+      </div>
+
+      <h3>Durations (minutes)</h3>
+      <div class="duration-row">
+        <label>Pomodoro<input id="dur-pomodoro" type="number" min="1" max="180" value="25"/></label>
+        <label>Short Break<input id="dur-short" type="number" min="1" max="60" value="5"/></label>
+        <label>Long Break<input id="dur-long" type="number" min="1" max="60" value="15"/></label>
+      </div>
+      <div class="duration-row">
+        <label>Long break after every
+          <input id="dur-interval" type="number" min="2" max="12" value="4"/>
+          pomodoros
+        </label>
+      </div>
+
+      <h3>Background</h3>
+      <div id="bg-presets" class="bg-presets"></div>
+      <div class="bg-upload">
+        <label for="bg-file">Custom image:</label>
+        <input id="bg-file" type="file" accept="image/*" />
+        <button id="bg-clear" class="ctrl-btn small">Clear image</button>
+      </div>
+      <div class="hint" id="bg-hint"></div>
+
+      <div class="modal-foot">
+        <button id="logout-btn" class="ctrl-btn">Log out</button>
+        <button id="settings-save" class="ctrl-btn primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
