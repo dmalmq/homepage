@@ -1,6 +1,5 @@
 import crypto from 'node:crypto';
 import { signToken, makeCookieHeader, COOKIE_NAME, parseCookies, verifyToken } from './_lib/auth.js';
-import { ensureSchema } from './_lib/db.js';
 
 function json(req, fallback = {}) {
   if (req.body && typeof req.body === 'object') return req.body;
@@ -28,23 +27,12 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'invalid' });
   }
 
-  // Already authed? Keep existing session.
+  // Already authed with a valid, unexpired cookie? Refresh it.
   const cookies = parseCookies(req.headers.cookie);
   const existing = verifyToken(cookies[COOKIE_NAME]);
-  if (existing) {
-    try { await ensureSchema(); } catch {}
-    return res.status(200).json({ ok: true });
-  }
-
-  try {
-    await ensureSchema();
-  } catch (e) {
-    console.error('ensureSchema failed', e);
-    return res.status(500).json({ error: 'db' });
-  }
 
   const exp = Date.now() + 30 * 24 * 60 * 60 * 1000;
   const token = signToken({ exp });
   res.setHeader('Set-Cookie', makeCookieHeader(token));
-  return res.status(200).json({ ok: true });
+  return res.status(200).json({ ok: true, refreshed: Boolean(existing) });
 }

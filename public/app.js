@@ -247,8 +247,8 @@
       const res2 = await api.getState();
       if (!res2.authed) { elLoginErr.textContent = 'Session error.'; return; }
       enterApp(res2.state);
-    } catch {
-      elLoginErr.textContent = 'Could not reach server.';
+    } catch (e) {
+      elLoginErr.textContent = 'Logged in, but the database is unreachable. Connect a Postgres database to the project (see /api/health).';
     }
   });
 
