@@ -197,13 +197,26 @@ CNAME_TARGET="cname.vercel-dns.com"
 # The Vercel CLI isn't a dependency of this project, so go through npx.
 vercel_cli() { npx --yes vercel "$@"; }
 
+# linked is true once `vercel link` has actually written its marker file.
+linked() { [[ -f .vercel/project.json ]]; }
+
 # vercel_env NAME VALUE sets NAME across all three Vercel environments,
 # removing any existing value first so re-runs don't collide.
+#
+# `vercel env add` output is deliberately NOT silenced. It prompts when it can't
+# tell which project it's targeting, and hiding stderr turns that question into
+# a hang with nothing on screen to explain it.
 vercel_env() {
   local name="$1" value="$2" target
+  if ! linked; then
+    warn "not linked to a Vercel project, so $name wasn't pushed there"
+    note "it is saved in $ENV_FILE, so nothing is lost"
+    SKIPPED+=("Vercel env $name — run 'npx vercel link', then re-run this script")
+    return 0
+  fi
   for target in production preview development; do
     vercel_cli env rm "$name" "$target" --yes >/dev/null 2>&1 || true
-    if printf '%s' "$value" | vercel_cli env add "$name" "$target" >/dev/null 2>&1; then
+    if printf '%s' "$value" | vercel_cli env add "$name" "$target"; then
       printf '  %s✓ set%s %s in Vercel (%s)\n' "$GREEN" "$RESET" "$name" "$target"
     else
       SKIPPED+=("Vercel env $name ($target) — add it under Project → Settings → Environment Variables")
@@ -250,11 +263,20 @@ say "variables directly, so no secret has to be pasted into a browser."
 say ""
 say "If you're not signed in, a browser window will open for login."
 vercel_cli login || true
-vercel_cli link || {
-  warn "link failed"
+vercel_cli link || true
+
+# Check the result rather than the exit code: a cancelled link can still exit 0,
+# and an unlinked folder makes every later `vercel env` call sit on a prompt.
+if linked; then
+  say "Linked."
+else
+  warn "Not linked — .vercel/project.json was not created."
+  say "Later stages will still save your secrets to $ENV_FILE, but can't push"
+  say "them to Vercel. Run 'npx vercel link' here and re-run this script — it"
+  say "remembers the values you already entered."
   SKIPPED+=("vercel link — run 'npx vercel link' in this folder")
-}
-pause "Linked?"
+fi
+pause "Continue?"
 
 # ── 4 ─────────────────────────────────────────────────────────────────────
 stage "Attach a Postgres database"
