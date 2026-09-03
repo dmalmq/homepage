@@ -103,9 +103,12 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* A photograph needs a heavier veil than the colour field, or white type
-   drops out of the bright bits. */
+   drops out of the bright bits. The first layer is a pool of shade under the
+   centre column: the corner-weighted gradient below is at its lightest exactly
+   where the tabs and task line sit, so on a busy photo they wash out. */
 html[data-wallpaper] .scrim {
   background:
+    radial-gradient(42% 48% at 50% 50%, rgb(0 0 0 / 0.26) 0%, rgb(0 0 0 / 0.13) 55%, rgb(0 0 0 / 0) 100%),
     radial-gradient(115% 85% at 50% 46%, rgb(0 0 0 / 0.22) 0%, rgb(0 0 0 / 0.50) 100%),
     linear-gradient(rgb(0 0 0 / 0.16), rgb(0 0 0 / 0.16));
 }
@@ -317,6 +320,11 @@ html[data-wallpaper] .scrim {
   -webkit-backdrop-filter: blur(10px);
 }
 .btn:hover { background: var(--glass-hover); }
+.btn--small {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+}
 .btn--primary {
   background: rgb(255 255 255 / 0.95);
   border-color: transparent;
