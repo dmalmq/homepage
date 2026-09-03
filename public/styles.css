@@ -141,13 +141,21 @@ html[data-wallpaper] {
 .wallpaper-layer.is-show { opacity: 1; }
 
 /* ---------- Shell ---------- */
+/* One row, with the topbar and the stage sharing it. The topbar used to take a
+   row of its own, which left the stage centring itself in the space below and
+   put the timer ~30px under the true centre of the window. Overlaying keeps the
+   padding in one place, and nothing in the topbar is interactive, so the stage
+   sitting over it costs nothing. */
 .app {
   position: relative;
   height: 100%;
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: 1fr;
   padding: 26px 30px;
 }
+.app > .topbar,
+.app > .stage { grid-area: 1 / 1; }
+.app > .topbar { align-self: start; }
 
 /* ---------- Top bar ---------- */
 .topbar {
@@ -206,14 +214,17 @@ html[data-wallpaper] {
 .stage-tab:hover { color: var(--ink-soft); }
 .stage-tab[aria-selected="true"] { color: var(--ink); font-weight: 600; }
 
+/* display:flex lives on :not([hidden]) so it cannot beat the UA [hidden]
+   rule. An author-level display:flex on .stage-view itself would let the
+   inactive view sit in the stage as a zero-height flex item and eat the gap. */
 .stage-view {
-  display: flex;
   flex-direction: column;
   align-items: center;
   gap: 22px;
   width: 100%;
   min-height: 0;
 }
+.stage-view:not([hidden]) { display: flex; }
 
 .stage-copy {
   display: flex;
@@ -1071,6 +1082,16 @@ html[data-wallpaper] {
   .topbar-quote { display: none; }
 }
 
+/* Below this the overlay stops being safe. Measured with the worst case — a
+   wrapping quote, a two-line intention and a long task title — the gap between
+   the topbar and the timer holds down to about 440px and goes negative shortly
+   after, so this is where the topbar needs its own row back. */
+@media (max-height: 440px) {
+  .app { grid-template-rows: auto 1fr; }
+  .app > .topbar { grid-area: auto; align-self: auto; }
+  .app > .stage { grid-area: auto; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
@@ -1181,16 +1202,9 @@ html[data-wallpaper] {
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* ---------- Entrance ---------- */
-/* A gentle settle on load, so a new tab arrives rather than snapping in. */
-.stage > * { animation: rise 0.5s var(--swift) backwards; }
-.stage > *:nth-child(1) { animation-delay: 0.02s; }
-.stage > *:nth-child(2) { animation-delay: 0.06s; }
-.stage > *:nth-child(3) { animation-delay: 0.10s; }
-@keyframes rise {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
+/* No load entrance on .stage. This page is a new tab, glanced at for half a
+   second: translateY(10px) with fill-mode backwards held the whole column
+   10px below centre for the entire view, which is why the timer looked low. */
 
 /* ---------- Confetti ---------- */
 .confetti {
