@@ -3,6 +3,11 @@ import { SOUNDS, playSound, syncToDurations } from './pomodoro.js';
 import { ENGINES, BANGS } from './search.js';
 import { mountFavoritesEditor } from './favorites.js';
 import { mountStationsEditor } from './stations.js';
+import {
+  status as spotifyStatus,
+  connect as spotifyConnect,
+  disconnect as spotifyDisconnect,
+} from './spotify.js';
 import { geocode, refreshWeather } from './weather.js';
 import { applyTheme } from './theme.js';
 import { keysMarkup } from './keys.js';
@@ -192,6 +197,39 @@ export function mountSettings({ onSearchChange = () => {}, onQuoteChange = () =>
     commit();
   });
 
+  $('spotify-connect').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    if (btn.dataset.action === 'disconnect') await spotifyDisconnect();
+    else await spotifyConnect();
+    btn.disabled = false;
+    paintSpotify();
+  });
+
+  // Only runs when the dialog opens, so it costs nothing on page load.
+  async function paintSpotify() {
+    const label = $('spotify-state');
+    const btn = $('spotify-connect');
+    label.textContent = 'Checking Spotify…';
+    btn.hidden = true;
+
+    const { connected, scopeStale } = await spotifyStatus();
+    btn.hidden = false;
+    if (connected && scopeStale) {
+      label.textContent = 'Connected, but new permissions need approving.';
+      btn.textContent = 'Reconnect';
+      btn.dataset.action = 'connect';
+    } else if (connected) {
+      label.textContent = 'Connected. Music plays here with full controls.';
+      btn.textContent = 'Disconnect';
+      btn.dataset.action = 'disconnect';
+    } else {
+      label.textContent = 'Not connected, so Spotify links use the basic embed.';
+      btn.textContent = 'Connect';
+      btn.dataset.action = 'connect';
+    }
+  }
+
   $('logout-btn').addEventListener('click', () => { dialog.close(); onLogout(); });
 
   function paint() {
@@ -213,6 +251,7 @@ export function mountSettings({ onSearchChange = () => {}, onQuoteChange = () =>
     paintWeatherNote();
     mountFavoritesEditor($('favorites-editor'));
     mountStationsEditor($('stations-editor'));
+    paintSpotify();
   }
 
   paint();

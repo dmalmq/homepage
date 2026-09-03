@@ -765,6 +765,109 @@ html[data-wallpaper] {
   aspect-ratio: auto;
 }
 
+/* ---------- Spotify Connect player ---------- */
+/* Our own DOM rather than Spotify's iframe, which is the whole point: these
+   controls cannot exist inside a cross-origin embed. */
+.sp-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.sp-art {
+  width: 48px; height: 48px; flex: none;
+  border-radius: 6px; object-fit: cover;
+  background: rgb(255 255 255 / 0.08);
+}
+.sp-art:not([src]) { visibility: hidden; }
+.sp-meta { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.sp-title {
+  font-size: 13px; font-weight: 600; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sp-artist {
+  font-size: 12px; color: var(--ink-faint);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.sp-transport {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  margin-top: 2px;
+}
+.sp-btn {
+  position: relative;
+  display: grid; place-items: center;
+  width: 32px; height: 32px; padding: 0;
+  color: var(--ink-soft);
+  background: none; border: 0; border-radius: var(--pill);
+  cursor: pointer;
+}
+.sp-btn:hover:not(:disabled) { color: var(--ink); background: var(--glass-hover); }
+.sp-btn:disabled { opacity: 0.3; cursor: default; }
+.sp-btn.is-on { color: var(--ink); }
+/* The only marker distinguishing repeat-one from repeat-all at this icon size. */
+.sp-btn.is-on[data-mode="track"]::after {
+  content: '1';
+  position: absolute; right: 4px; bottom: 2px;
+  font-size: 9px; font-weight: 700; line-height: 1;
+}
+.sp-btn--play {
+  width: 40px; height: 40px;
+  color: #1b1035; background: var(--ink);
+}
+.sp-btn--play:hover:not(:disabled) { color: #1b1035; background: #fff; }
+.sp-btn--quiet { width: 28px; height: 28px; flex: none; }
+
+.sp-times {
+  display: flex; justify-content: space-between;
+  font-size: 11px; color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+.sp-volume { display: flex; align-items: center; gap: 8px; margin-top: 8px; color: var(--ink-faint); }
+.sp-volume svg { flex: none; }
+
+.sp-seek, .sp-vol {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 4px; margin: 0;
+  border-radius: var(--pill);
+  cursor: pointer;
+  /* --fill is set from JS; native range inputs have no elapsed portion. */
+  background: linear-gradient(
+    to right,
+    var(--ink) var(--fill, 0%),
+    rgb(255 255 255 / 0.20) var(--fill, 0%)
+  );
+}
+.sp-seek::-webkit-slider-thumb, .sp-vol::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 11px; height: 11px; border-radius: 50%;
+  background: var(--ink); border: 0;
+}
+.sp-seek::-moz-range-thumb, .sp-vol::-moz-range-thumb {
+  width: 11px; height: 11px; border-radius: 50%;
+  background: var(--ink); border: 0;
+}
+.player-stage.is-idle { opacity: 0.55; }
+
+.player-connect {
+  font: inherit; font-size: 12px; font-weight: 600;
+  color: var(--ink); background: none;
+  border: 0; border-bottom: 1px solid var(--ink-faint);
+  padding: 0; cursor: pointer;
+}
+.player-connect:disabled { opacity: 0.4; cursor: default; }
+
+/* Popped out, the player is the whole window, so the fixed corner placement
+   and the entry animation both have to go. */
+.pip-body { margin: 0; background: #160f2b; }
+.player.is-pip {
+  position: static;
+  width: auto;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  animation: none;
+}
+
+.spotify-auth { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.spotify-auth .field-note { margin: 0; flex: 1; }
+
 /* ---------- Settings ---------- */
 .ghost-btn {
   font: inherit; font-size: 13px;

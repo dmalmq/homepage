@@ -13,6 +13,8 @@
 // a browser error page rather than anything explicable. Reliability wins here.
 
 import { state, commit, uid, subscribe } from './store.js';
+import * as sp from './spotify.js';
+import * as spPanel from './spotify-panel.js';
 
 const SPOTIFY_TYPES = 'track|album|playlist|artist|episode|show';
 
@@ -26,8 +28,11 @@ export function toEmbed(rawUrl) {
   const spotifyWeb = url.match(new RegExp(`open\.spotify\.com/(?:intl-[a-z-]+/)?(${SPOTIFY_TYPES})/([A-Za-z0-9]+)`));
   const spotify = spotifyUri || spotifyWeb;
   if (spotify) {
+    // uri is derived rather than stored, so saved stations need no migration.
     return {
       kind: 'spotify',
+      type: spotify[1],
+      uri: `spotify:${spotify[1]}:${spotify[2]}`,
       src: `https://open.spotify.com/embed/${spotify[1]}/${spotify[2]}`,
       height: 152,
     };
@@ -96,6 +101,10 @@ function renderChips() {
 
 export function play(station) {
   const embed = toEmbed(station.url);
+  // Audio outlives the DOM: the SDK plays from its own hidden iframe, so
+  // replacing the player markup is not enough to silence it.
+  spPanel.unmount();
+  sp.pause().catch(() => {});
   playerEl.innerHTML = '';
   tucked = false;
   playerEl.classList.remove('is-tucked');
@@ -136,6 +145,16 @@ export function play(station) {
   const stage = document.createElement('div');
   stage.className = 'player-stage';
 
+  playerEl.hidden = false;
+  playerEl.append(bar, stage);
+  playingId = station.id;
+  renderChips();
+
+  if (embed.kind === 'spotify') routeSpotify(embed, stage, station);
+  else stage.append(buildFrame(embed, station));
+}
+
+function buildFrame(embed, station) {
   const frame = document.createElement('iframe');
   frame.src = embed.src;
   frame.title = station.label || 'Player';
@@ -144,12 +163,59 @@ export function play(station) {
   frame.allowFullscreen = true;
   frame.className = embed.ratio ? 'player-frame is-video' : 'player-frame';
   if (!embed.ratio) frame.height = embed.height;
-  stage.append(frame);
+  return frame;
+}
 
-  playerEl.hidden = false;
-  playerEl.append(bar, stage);
-  playingId = station.id;
-  renderChips();
+/** Music goes through the Connect player for the full controls. Podcasts and
+ *  browsers without Widevine can't use the SDK at all, so they keep the embed. */
+function routeSpotify(embed, stage, station) {
+  // Must happen inside the click, before any await, or the autoplay policy
+  // blocks the first play. It is a no-op until the SDK player exists.
+  sp.activate();
+
+  const fallback = (note) => {
+    stage.replaceChildren();
+    if (note) stage.append(note);
+    stage.append(buildFrame(embed, station));
+  };
+
+  (async () => {
+    if (!sp.canPlay(embed.type) || !(await sp.isSupported())) {
+      return fallback(null);
+    }
+    if (station.id !== playingId) return;
+
+    const { connected } = await sp.status();
+    if (station.id !== playingId) return;
+    if (!connected) return fallback(connectPrompt(station));
+
+    try {
+      spPanel.mountStage(stage);
+      await sp.start(embed.uri, embed.type);
+    } catch (e) {
+      console.warn('spotify connect player failed, using the embed', e);
+      if (station.id === playingId) fallback(null);
+    }
+  })();
+}
+
+/** Without this the richer player is undiscoverable — you would have to guess
+ *  that settings has a Connect button. */
+function connectPrompt(station) {
+  const note = document.createElement('p');
+  note.className = 'player-note';
+  note.append('Connect Spotify for volume and shuffle. ');
+  const link = document.createElement('button');
+  link.type = 'button';
+  link.className = 'player-connect';
+  link.textContent = 'Connect';
+  link.addEventListener('click', async () => {
+    link.disabled = true;
+    if (await sp.connect()) play(station);
+    else link.disabled = false;
+  });
+  note.append(link);
+  return note;
 }
 
 function toggleTuck() {
@@ -160,6 +226,9 @@ function toggleTuck() {
 /** Collapse the chrome; the iframe stays so audio keeps going. */
 export function hidePlayer() {
   if (!playerEl || playerEl.hidden || tucked) return;
+  // Popped out to picture-in-picture the player lives in another document, and
+  // tucking it there would hide it inside its own window.
+  if (!document.contains(playerEl)) return;
   if (!playerEl.querySelector('.player-stage')) return;
   tucked = true;
   playerEl.classList.add('is-tucked');
@@ -183,6 +252,8 @@ export function showPlayer() {
 
 export function stop() {
   tucked = false;
+  sp.pause().catch(() => {});
+  spPanel.unmount();
   playerEl.classList.remove('is-tucked');
   playerEl.innerHTML = '';
   playerEl.hidden = true;

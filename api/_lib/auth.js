@@ -2,20 +2,27 @@ import crypto from 'node:crypto';
 
 const SECRET = process.env.APP_SECRET || 'dev-insecure-secret';
 
+// OAuth state travels through another origin's servers and lands in the address
+// bar, browser history and access logs. It is signed with a key derived from
+// APP_SECRET rather than APP_SECRET itself, so a leaked state value can never be
+// replayed as a session cookie — verifyToken() authenticates any payload it can
+// verify, and has no idea what a payload was minted for.
+const STATE_KEY = crypto.createHmac('sha256', SECRET).update('spotify-oauth-state').digest();
+
 export const COOKIE_NAME = 'pomo_auth';
 const MAX_AGE_SEC = 30 * 24 * 60 * 60; // 30 days
 
-export function signToken(payload) {
+function sign(key, payload) {
   const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  const sig = crypto.createHmac('sha256', SECRET).update(body).digest('base64url');
+  const sig = crypto.createHmac('sha256', key).update(body).digest('base64url');
   return `${body}.${sig}`;
 }
 
-export function verifyToken(token) {
+function verify(key, token) {
   if (!token || typeof token !== 'string') return null;
   const [body, sig] = token.split('.');
   if (!body || !sig) return null;
-  const expected = crypto.createHmac('sha256', SECRET).update(body).digest('base64url');
+  const expected = crypto.createHmac('sha256', key).update(body).digest('base64url');
   const a = Buffer.from(sig);
   const b = Buffer.from(expected);
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
@@ -26,6 +33,22 @@ export function verifyToken(token) {
   } catch {
     return null;
   }
+}
+
+export function signToken(payload) {
+  return sign(SECRET, payload);
+}
+
+export function verifyToken(token) {
+  return verify(SECRET, token);
+}
+
+export function signStateToken(payload) {
+  return sign(STATE_KEY, payload);
+}
+
+export function verifyStateToken(token) {
+  return verify(STATE_KEY, token);
 }
 
 export function parseCookies(headerValue) {

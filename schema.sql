@@ -19,3 +19,12 @@ CREATE TABLE IF NOT EXISTS login_attempts (
   window_start TIMESTAMPTZ NOT NULL DEFAULT now(),
   locked_until TIMESTAMPTZ
 );
+
+-- Spotify OAuth. Single row; the refresh token never leaves the server.
+CREATE TABLE IF NOT EXISTS spotify_auth (
+  id            INTEGER PRIMARY KEY DEFAULT 1,
+  refresh_token TEXT        NOT NULL,
+  scope         TEXT        NOT NULL DEFAULT '',
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT spotify_auth_singleton CHECK (id = 1)
+);
