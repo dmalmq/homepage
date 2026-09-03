@@ -26,11 +26,12 @@ export const api = {
     return { authed: true, state: state || {} };
   },
 
-  async putState(state) {
+  async putState(state, { keepalive = false } = {}) {
     const r = await fetch('/api/state', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ state }),
+      keepalive,
     });
     if (r.status === 401) return { authed: false };
     if (!r.ok) throw new Error('state put failed');

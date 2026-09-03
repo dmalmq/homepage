@@ -22,21 +22,22 @@ grok
 
 Windows PowerShell opens a new console for every agent command, and `npm.cmd` / Chrome add more. WSL keeps the whole session in one terminal. If a session is still on Windows `pwsh`, wrap commands in `wsl -e bash -lc '...'` and never launch a visible Chrome for verification — use `chrome-headless-shell` or skip the browser.
 
-There is no build step and no `scripts` block — Vercel serves `public/` statically and
-treats each file in `api/` as a function. The frontend uses native ES modules
+There is no build step — Vercel serves `public/` statically and treats each file in
+`api/` as a function. `npm test` uses Node's built-in runner and `npm run check`
+syntax-checks the modules. The frontend uses native ES modules
 (`<script type="module">`), which is why it can be split across files without a bundler.
 Don't add one.
 
 ## Notes
 
 - **Two env vars are required:** `APP_PASSWORD` (login) and `APP_SECRET` (cookie
-  signing). Missing `APP_SECRET` silently breaks sessions rather than erroring loudly.
+  signing). Missing `APP_SECRET` rejects cookies and makes login fail closed.
 - Single-user by design. Don't add multi-tenancy, user tables, or per-user scoping
   unless asked — the auth model assumes exactly one password holder.
 - **Login throttling** (`api/_lib/ratelimit.js`) is the only thing that couples login to
   the database, and it fails open on purpose — a database outage must not lock the owner
-  out. Keep it that way. The decision logic is `nextAttemptState()`, kept pure so it can
-  be tested without a database.
+  out. Keep it that way. Attempt reservation is a single atomic UPSERT so concurrent
+  guesses cannot overwrite one another's counters.
 - **`/api/health` is intentionally reachable without a session**, because it exists to
   diagnose a deployment you can't log into. Anything that would help an attacker — the
   Node version, raw database errors — goes behind the cookie check; the password's length

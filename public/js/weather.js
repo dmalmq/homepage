@@ -3,7 +3,7 @@
 // synced state so it costs one request per load. Failure is silent: the slot
 // just stays empty rather than blocking or shouting.
 
-import { state } from './store.js';
+import { state, subscribe } from './store.js';
 
 const FORECAST = 'https://api.open-meteo.com/v1/forecast';
 const GEOCODE = 'https://geocoding-api.open-meteo.com/v1/search';
@@ -40,32 +40,51 @@ export async function geocode(query) {
 }
 
 let el = null;
+let request = null;
+let weatherSignature = '';
+
+function signature() {
+  const { lat, lon, label } = state.weather || {};
+  return `${lat ?? ''}|${lon ?? ''}|${label || ''}`;
+}
 
 export function mountWeather(node) {
   el = node;
+  weatherSignature = signature();
   refreshWeather();
+  subscribe(() => {
+    const next = signature();
+    if (next === weatherSignature) return;
+    weatherSignature = next;
+    refreshWeather();
+  });
   setInterval(refreshWeather, REFRESH_MS);
 }
 
 export async function refreshWeather() {
   if (!el) return;
+  if (request) request.abort();
+  const controller = new AbortController();
+  request = controller;
   const { lat, lon, label } = state.weather || {};
 
   if (typeof lat !== 'number' || typeof lon !== 'number') {
     el.textContent = '';
+    request = null;
     return;
   }
 
   try {
     const url = `${FORECAST}?latitude=${lat}&longitude=${lon}`
       + '&current=temperature_2m,weather_code&timezone=auto';
-    const r = await fetch(url);
+    const r = await fetch(url, { signal: controller.signal });
     if (!r.ok) throw new Error('forecast failed');
     const { current } = await r.json();
     if (!current) throw new Error('no current block');
 
     const temp = Math.round(current.temperature_2m);
     const desc = describeCode(current.weather_code);
+    if (request !== controller) return;
     el.innerHTML = '';
     el.append(
       span('weather-place', label || ''),
@@ -73,8 +92,11 @@ export async function refreshWeather() {
       span('weather-desc', desc),
     );
   } catch (e) {
+    if (e && e.name === 'AbortError') return;
     console.warn('weather unavailable', e);
-    el.textContent = '';
+    if (request === controller) el.textContent = '';
+  } finally {
+    if (request === controller) request = null;
   }
 }
 

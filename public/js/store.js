@@ -39,6 +39,8 @@ export const DEFAULTS = {
 const SYNCED_KEYS = Object.keys(DEFAULTS);
 
 const SESSION_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+const CACHE_KEY = 'homepage.state-cache.v1';
+const RETRY_MAX_MS = 30_000;
 
 export const state = {};
 
@@ -81,18 +83,85 @@ export function render() {
 let serverTs = 0;
 let writeInFlight = false;
 let dirty = false;
+let localRevision = 0;
 let pushTimer = null;
+let retryMs = 1_000;
+
+export const syncStatus = {
+  phase: 'idle', // idle | saving | synced | offline | error
+  backupAvailable: true,
+};
+const syncListeners = new Set();
+
+export function subscribeSync(fn) {
+  syncListeners.add(fn);
+  return () => syncListeners.delete(fn);
+}
+
+function setSyncStatus(phase, changes = {}) {
+  syncStatus.phase = phase;
+  Object.assign(syncStatus, changes);
+  for (const fn of syncListeners) {
+    try { fn(syncStatus); } catch (e) { console.error('sync status listener failed', e); }
+  }
+}
+
+function isOffline() {
+  return typeof navigator !== 'undefined' && navigator.onLine === false;
+}
 
 const handlers = { onUnauthed: () => {} };
 export function setUnauthedHandler(fn) { handlers.onUnauthed = fn; }
 
-export function replaceState(incoming) {
+function adoptState(incoming) {
   const next = mergeDefaults(incoming);
   for (const k of Object.keys(state)) delete state[k];
   Object.assign(state, next);
   pruneSessions();
-  if (applyDayRollover(state)) schedulePush();
+  const prunedEmptyEntries = pruneEmptyEntries();
   serverTs = state.updatedAt || 0;
+  return applyDayRollover(state) || prunedEmptyEntries;
+}
+
+export function replaceState(incoming) {
+  dirty = false;
+  if (adoptState(incoming)) markDirty();
+  else {
+    persistLocalSnapshot();
+    setSyncStatus('synced');
+  }
+}
+
+/** Prefer a locally dirty snapshot to remote state. This makes a tab closed
+ *  during a failed/debounced write recover on its next open. */
+export function initializeState(incoming) {
+  const cached = readLocalSnapshot();
+  if (cached && cached.dirty) {
+    adoptState(cached.state);
+    serverTs = Number(cached.serverTs) || state.updatedAt || 0;
+    localRevision = Math.max(1, Number(cached.revision) || 1);
+    dirty = true;
+    persistLocalSnapshot();
+    setSyncStatus(isOffline() ? 'offline' : 'saving');
+    schedulePush(0);
+    return;
+  }
+  replaceState(incoming || {});
+}
+
+/** Restore any cached state when the server is temporarily unreachable. */
+export function initializeCachedState() {
+  const cached = readLocalSnapshot();
+  if (!cached) return false;
+  const rolled = adoptState(cached.state);
+  serverTs = Number(cached.serverTs) || state.updatedAt || 0;
+  localRevision = Math.max(0, Number(cached.revision) || 0);
+  dirty = Boolean(cached.dirty) || rolled;
+  if (rolled) localRevision += 1;
+  persistLocalSnapshot();
+  setSyncStatus('offline');
+  if (dirty) schedulePush();
+  return true;
 }
 
 export function getSyncedState() {
@@ -105,6 +174,14 @@ function pruneSessions() {
   const cutoff = Date.now() - SESSION_RETENTION_MS;
   if (!Array.isArray(state.sessions)) { state.sessions = []; return; }
   state.sessions = state.sessions.filter(s => s && typeof s.t === 'number' && s.t > cutoff);
+}
+
+function pruneEmptyEntries() {
+  const favorites = state.favorites.length;
+  const stations = state.stations.length;
+  state.favorites = state.favorites.filter(f => f && String(f.label || f.url || '').trim());
+  state.stations = state.stations.filter(s => s && String(s.label || s.url || '').trim());
+  return favorites !== state.favorites.length || stations !== state.stations.length;
 }
 
 /** Local calendar day as YYYY-MM-DD. */
@@ -157,35 +234,92 @@ export function ensureDay() {
   if (applyDayRollover(state)) commit();
 }
 
-export function schedulePush() {
-  clearTimeout(pushTimer);
-  pushTimer = setTimeout(pushState, 800);
-}
-
-/** Persist without re-rendering — for inputs the user is actively typing into. */
-export function save() { schedulePush(); }
-
-/** Persist and re-render every subscriber. The default for discrete actions. */
-export function commit() { schedulePush(); render(); }
-
-export async function pushState() {
-  if (writeInFlight) { dirty = true; return; }
-  writeInFlight = true;
+function readLocalSnapshot() {
   try {
-    const res = await api.putState(getSyncedState());
-    if (!res.authed) { handlers.onUnauthed(); return; }
-    serverTs = (res.state && res.state.updatedAt) || serverTs;
-    state.updatedAt = serverTs;
-  } catch (e) {
-    console.warn('push failed', e);
-  } finally {
-    writeInFlight = false;
-    if (dirty) { dirty = false; schedulePush(); }
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const cached = JSON.parse(raw);
+    if (!cached || cached.version !== 1 || !cached.state || typeof cached.state !== 'object') return null;
+    return cached;
+  } catch {
+    return null;
   }
 }
 
-export async function pullState({ force = false } = {}) {
-  if (writeInFlight && !force) return;
+function persistLocalSnapshot() {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({
+      version: 1,
+      state: getSyncedState(),
+      dirty,
+      serverTs,
+      revision: localRevision,
+    }));
+    if (!syncStatus.backupAvailable) setSyncStatus(syncStatus.phase, { backupAvailable: true });
+  } catch {
+    if (syncStatus.backupAvailable) setSyncStatus(syncStatus.phase, { backupAvailable: false });
+  }
+}
+
+function markDirty() {
+  dirty = true;
+  localRevision += 1;
+  persistLocalSnapshot();
+  setSyncStatus(isOffline() ? 'offline' : 'saving');
+  schedulePush();
+}
+
+export function schedulePush(delay = 800) {
+  if (!dirty) return;
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(pushState, delay);
+}
+
+/** Persist without re-rendering — for inputs the user is actively typing into. */
+export function save() { markDirty(); }
+
+/** Persist and re-render every subscriber. The default for discrete actions. */
+export function commit() { markDirty(); render(); }
+
+export async function pushState() {
+  pushTimer = null;
+  if (writeInFlight || !dirty) return;
+  writeInFlight = true;
+  const sentRevision = localRevision;
+  const snapshot = clone(getSyncedState());
+  let authLost = false;
+  setSyncStatus(isOffline() ? 'offline' : 'saving');
+  try {
+    const res = await api.putState(snapshot);
+    if (!res.authed) {
+      authLost = true;
+      setSyncStatus('idle');
+      handlers.onUnauthed();
+      return;
+    }
+    serverTs = (res.state && res.state.updatedAt) || serverTs;
+    state.updatedAt = serverTs;
+    retryMs = 1_000;
+    if (localRevision === sentRevision) {
+      dirty = false;
+      setSyncStatus('synced');
+    }
+    persistLocalSnapshot();
+  } catch (e) {
+    console.warn('push failed', e);
+    setSyncStatus(isOffline() ? 'offline' : 'error');
+    schedulePush(retryMs);
+    retryMs = Math.min(RETRY_MAX_MS, retryMs * 2);
+  } finally {
+    writeInFlight = false;
+    if (!authLost && dirty && !pushTimer) schedulePush(localRevision === sentRevision ? retryMs : 0);
+  }
+}
+
+export async function pullState() {
+  // A server timestamp cannot express a local edit that has not reached the
+  // server yet. Never replace such an edit with a pull.
+  if (writeInFlight || dirty) return;
   try {
     const res = await api.getState();
     if (!res.authed) { handlers.onUnauthed(); return; }
@@ -194,7 +328,15 @@ export async function pullState({ force = false } = {}) {
       replaceState(res.state);
       render();
     }
+    if (syncStatus.phase !== 'synced') setSyncStatus('synced');
   } catch (e) {
     console.warn('pull failed', e);
+    setSyncStatus(isOffline() ? 'offline' : 'error');
   }
+}
+
+export function retrySyncNow() {
+  retryMs = 1_000;
+  if (dirty) schedulePush(0);
+  else pullState();
 }

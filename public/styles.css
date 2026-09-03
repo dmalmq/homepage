@@ -471,6 +471,16 @@ html[data-wallpaper] {
 .dock-count:hover { color: var(--ink); background: rgb(255 255 255 / 0.14); }
 .dock-count.is-active { color: #1b1035; background: rgb(255 255 255 / 0.92); }
 
+.sync-status {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  padding-left: 8px;
+  white-space: nowrap;
+}
+.sync-status--offline, .sync-status--error { color: #ffc9d1; }
+.sync-status--saving::before { content: '●'; font-size: 7px; margin-right: 5px; }
+
 /* ---------- Floating panel ---------- */
 .panel {
   position: fixed;
@@ -924,6 +934,7 @@ html[data-wallpaper] {
 }
 
 .field input[type="text"],
+.field input[type="url"],
 .field input[type="number"],
 .field select {
   font: inherit; font-size: 14px;
@@ -1029,6 +1040,14 @@ html[data-wallpaper] {
   .search-input { padding: 12px 20px; }
   .edit-row { grid-template-columns: 1fr auto; }
   .edit-row input:nth-child(2) { grid-column: 1 / -1; }
+}
+
+@media (max-width: 380px) {
+  .dock--right { bottom: 70px; }
+  .panel,
+  .panel--right { bottom: 122px; }
+  .player { bottom: 122px; }
+  .sync-status { max-width: 68px; overflow: hidden; text-overflow: ellipsis; }
 }
 
 /* Short windows shrink the timer rather than dropping search and favorites.

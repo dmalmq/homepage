@@ -1,7 +1,7 @@
 // The colour field tracks the real hour, so the background carries information
 // instead of just decorating. `ground.mode` can pin it to a single phase.
 
-import { state } from './store.js';
+import { state, subscribe } from './store.js';
 
 export const PHASES = ['dawn', 'day', 'dusk', 'night'];
 
@@ -26,6 +26,7 @@ export function applyTheme(now = new Date()) {
 
 export function startThemeClock() {
   applyTheme();
+  subscribe(() => applyTheme());
   // Re-check every minute. The phase only turns over on an hour boundary, but
   // this keeps it right across sleep/wake without extra listeners.
   setInterval(() => applyTheme(), 60_000);

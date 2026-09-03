@@ -17,6 +17,7 @@ function json(req, fallback = {}) {
 const MAX_STATE_BYTES = 4 * 1024 * 1024; // 4MB guard for serverless payload
 
 export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'no-store');
   if (!auth(req)) return res.status(401).json({ error: 'auth' });
 
   try {
