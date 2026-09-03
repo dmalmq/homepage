@@ -53,19 +53,23 @@
       </div>
 
       <div id="stage-start" class="stage-view" role="tabpanel" aria-labelledby="tab-start">
+        <div class="stage-north"></div>
         <div id="clock-root"></div>
-        <div class="jump">
+        <div class="jump stage-south">
           <div id="search-root"></div>
           <div id="favorites-root" class="fav-row"></div>
         </div>
       </div>
 
       <div id="stage-pomodoro" class="stage-view" role="tabpanel" aria-labelledby="tab-pomodoro" hidden>
-        <div class="stage-copy">
-          <p id="intention" class="stage-intention" tabindex="0" role="button"></p>
-          <button id="current-task" class="stage-task" type="button"></button>
+        <div class="stage-north">
+          <div class="stage-copy">
+            <p id="intention" class="stage-intention" tabindex="0" role="button"></p>
+            <button id="current-task" class="stage-task" type="button"></button>
+          </div>
         </div>
         <div id="timer-root"></div>
+        <div class="stage-south"></div>
       </div>
     </main>
 

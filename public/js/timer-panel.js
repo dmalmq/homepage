@@ -35,13 +35,24 @@ export function mountTimer(root) {
       </button>
     </div>`;
 
-  const readout = root.querySelector('.readout');
-  const mins = root.querySelector('.digits');
-  const secs = root.querySelector('.digits-2');
-  const startBtn = root.querySelector('.timer-start');
-  const resetBtn = root.querySelector('.timer-reset');
-  const dots = root.querySelector('.dots');
-  const modeButtons = [...root.querySelectorAll('.mode')];
+  // Chrome sits in the equal 1fr rows above and below so the readout
+  // occupies the same centre as the Home clock.
+  const view = root.closest('.stage-view') || root;
+  view.querySelector('.stage-north')?.append(
+    root.querySelector('.modes'),
+    root.querySelector('.dots'),
+  );
+  view.querySelector('.stage-south')?.append(
+    root.querySelector('.controls'),
+  );
+
+  const readout = view.querySelector('.readout');
+  const mins = view.querySelector('.digits');
+  const secs = view.querySelector('.digits-2');
+  const startBtn = view.querySelector('.timer-start');
+  const resetBtn = view.querySelector('.timer-reset');
+  const dots = view.querySelector('.dots');
+  const modeButtons = [...view.querySelectorAll('.mode')];
 
   let wasRunning = timer.running;
   let lastDoneCount = -1;

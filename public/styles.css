@@ -189,42 +189,71 @@ html[data-wallpaper] {
 
 /* ---------- Centre stage ---------- */
 .stage {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
+  position: relative;
+  display: grid;
   min-height: 0;
 }
 
+/* Out of the centred column, in the empty band between date and quote. */
 .stage-tabs {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
   display: flex;
-  gap: 20px;
+  justify-content: center;
+  gap: 32px;
+  pointer-events: none;
 }
 .stage-tab {
   font: inherit;
-  font-size: 13px;
+  font-size: 17px;
   font-weight: 500;
+  letter-spacing: -0.015em;
   color: var(--ink-faint);
   background: none;
   border: 0;
-  padding: 4px 2px;
+  padding: 6px 4px;
   cursor: pointer;
+  pointer-events: auto;
 }
 .stage-tab:hover { color: var(--ink-soft); }
 .stage-tab[aria-selected="true"] { color: var(--ink); font-weight: 600; }
 
-/* display:flex lives on :not([hidden]) so it cannot beat the UA [hidden]
-   rule. An author-level display:flex on .stage-view itself would let the
-   inactive view sit in the stage as a zero-height flex item and eat the gap. */
+/* Three rows: chrome above, the readout, chrome below. Equal 1fr tracks
+   pin the clock and the timer to the same viewport centre. */
 .stage-view {
-  flex-direction: column;
-  align-items: center;
-  gap: 22px;
   width: 100%;
   min-height: 0;
+  justify-items: center;
 }
-.stage-view:not([hidden]) { display: flex; }
+.stage-view:not([hidden]) {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 18px;
+}
+.stage-north {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 15px;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  align-self: stretch;
+}
+.stage-south {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  align-self: stretch;
+}
 
 .stage-copy {
   display: flex;
@@ -274,13 +303,10 @@ html[data-wallpaper] {
 .stage-task.is-empty { color: var(--ink-faint); font-weight: 600; font-size: 18px; }
 
 /* ---------- Timer ---------- */
-/* The children stack with no margins of their own, so the rhythm lives here.
-   Without it the dots sit flush against the pills. */
-#timer-root {
+#timer-root,
+#clock-root {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 15px;
+  justify-content: center;
 }
 
 .modes { display: flex; gap: 10px; justify-content: center; }
@@ -304,7 +330,7 @@ html[data-wallpaper] {
 }
 
 /* One dot per pomodoro in the current long-break cycle. */
-.dots { display: flex; gap: 7px; justify-content: center; height: 8px; margin-top: 2px; }
+.dots { display: flex; gap: 7px; justify-content: center; height: 8px; }
 .dot {
   width: 8px;
   height: 8px;
@@ -322,7 +348,7 @@ html[data-wallpaper] {
   text-shadow: 0 6px 40px rgb(0 0 0 / 0.22);
 }
 
-.controls { display: flex; align-items: center; gap: 14px; margin-top: 6px; }
+.controls { display: flex; align-items: center; gap: 14px; }
 
 .btn {
   font: inherit;
@@ -1037,7 +1063,9 @@ html[data-wallpaper] {
   .app { padding: 18px; }
   .topbar-quote { display: none; }
   .readout { font-size: clamp(64px, 22vw, 110px); }
-  .stage-view { gap: 14px; }
+  .stage-view:not([hidden]) { gap: 14px; }
+  .stage-tabs { top: 42px; }
+  .stage-tab { font-size: 16px; }
   .dock--left { left: 14px; }
   .dock--right { right: 14px; }
   .panel,
@@ -1065,10 +1093,9 @@ html[data-wallpaper] {
    Those are the reason the page is worth opening on a new tab, so they're the
    last thing that should go. */
 @media (max-height: 780px) {
-  .stage { gap: 12px; }
-  #timer-root { gap: 11px; }
+  .stage-north { gap: 11px; }
   .readout { font-size: clamp(64px, 11vw, 124px); }
-  .stage-view { gap: 14px; }
+  .stage-view:not([hidden]) { gap: 14px; }
 }
 @media (max-height: 620px) {
   .app { padding: 16px 22px; }
@@ -1077,7 +1104,7 @@ html[data-wallpaper] {
   .stage-task.is-empty { font-size: 16px; }
   .readout { font-size: clamp(52px, 9vw, 92px); }
   .mode { padding: 7px 16px; font-size: 13px; }
-  .stage-view { gap: 10px; }
+  .stage-view:not([hidden]) { gap: 10px; }
   .jump { gap: 10px; }
   .topbar-quote { display: none; }
 }
@@ -1090,6 +1117,7 @@ html[data-wallpaper] {
   .app { grid-template-rows: auto 1fr; }
   .app > .topbar { grid-area: auto; align-self: auto; }
   .app > .stage { grid-area: auto; }
+  .stage-tabs { top: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
