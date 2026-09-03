@@ -5,3 +5,6 @@ node_modules
 .env.*.local
 *.log
 .DS_Store
+
+# Machine-local: ln -s copies here, so this would vendor third-party skills
+.claude/skills/
