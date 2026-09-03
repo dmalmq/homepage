@@ -192,7 +192,7 @@ ENV_FILE=".env.local"
 
 REPO="dmalmq/homepage"
 DOMAIN="homepage.malmqvist.dev"
-CNAME_TARGET="cname.vercel-dns.com"
+PROJECT="homepage"
 
 # The Vercel CLI isn't a dependency of this project, so go through npx.
 vercel_cli() { npx --yes vercel "$@"; }
@@ -345,19 +345,22 @@ pause "Ready to attach the domain?"
 
 # ── 8 ─────────────────────────────────────────────────────────────────────
 stage "Point $DOMAIN at the project"
-say "malmqvist.dev already runs on Vercel behind Cloudflare, so this subdomain"
-say "just follows the same pattern."
-open_url "https://vercel.com/dashboard"
-step "Project → Settings → Domains → add:  $DOMAIN"
-pause "Added in Vercel?"
+say "Attaching the domain, then asking Vercel for the exact DNS record it wants."
+say ""
+vercel_cli domains add "$DOMAIN" "$PROJECT" 2>&1 | tail -6 || true
+say ""
+say "The record Vercel wants:"
+vercel_cli domains verify "$DOMAIN" 2>&1 | sed -n '/"records"/,/\]/p' \
+  || warn "couldn't read it; run: npx vercel domains verify $DOMAIN"
+note "The CNAME target is generated per domain — don't copy one from another"
+note "project or from the docs."
 say ""
 open_url "https://dash.cloudflare.com"
-step "malmqvist.dev → DNS → Records → Add record:"
-step "    Type: CNAME    Name: homepage    Target: $CNAME_TARGET"
-step "Match the proxy setting your apex record already uses."
-step "Then SSL/TLS → Overview → set the encryption mode to 'Full (strict)'."
-warn "'Flexible' sends it into an infinite redirect loop through Vercel."
-pause "DNS and SSL set?"
+step "malmqvist.dev → DNS → Records → Add record, exactly as printed above."
+step "Set Proxy status to 'DNS only' (grey cloud)."
+warn "Vercel returns disableProxy: true for this record. Proxying it through"
+warn "Cloudflare breaks certificate issuance."
+pause "DNS record added?"
 
 # ── 9 ─────────────────────────────────────────────────────────────────────
 stage "Verify it's actually live"
