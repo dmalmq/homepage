@@ -197,8 +197,10 @@ CNAME_TARGET="cname.vercel-dns.com"
 # The Vercel CLI isn't a dependency of this project, so go through npx.
 vercel_cli() { npx --yes vercel "$@"; }
 
-# linked is true once `vercel link` has actually written its marker file.
-linked() { [[ -f .vercel/project.json ]]; }
+# linked is true once `vercel link` has written a marker. Which marker depends
+# on how the project was linked: a single project writes project.json, a
+# repo-style link (CLI 59) writes repo.json. Accept either.
+linked() { [[ -f .vercel/project.json || -f .vercel/repo.json ]]; }
 
 # vercel_env NAME VALUE sets NAME across all three Vercel environments,
 # removing any existing value first so re-runs don't collide.
@@ -214,15 +216,16 @@ vercel_env() {
     SKIPPED+=("Vercel env $name — run 'npx vercel link', then re-run this script")
     return 0
   fi
-  for target in production preview development; do
-    vercel_cli env rm "$name" "$target" --yes >/dev/null 2>&1 || true
-    if printf '%s' "$value" | vercel_cli env add "$name" "$target"; then
-      printf '  %s✓ set%s %s in Vercel (%s)\n' "$GREEN" "$RESET" "$name" "$target"
-    else
-      SKIPPED+=("Vercel env $name ($target) — add it under Project → Settings → Environment Variables")
-      warn "could not set $name for $target"
-    fi
-  done
+  # One call covers all three environments. Looping and calling once per
+  # environment is what used to hang: the second invocation would sit on a
+  # prompt after the first had succeeded.
+  vercel_cli env rm "$name" --yes >/dev/null 2>&1 || true
+  if printf '%s' "$value" | vercel_cli env add "$name" production preview development; then
+    printf '  %s✓ set%s %s in Vercel (production, preview, development)\n' "$GREEN" "$RESET" "$name"
+  else
+    SKIPPED+=("Vercel env $name — add it under Project → Settings → Environment Variables")
+    warn "could not set $name"
+  fi
 }
 
 banner "homepage.malmqvist.dev setup"
