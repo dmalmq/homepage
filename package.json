@@ -1,9 +1,9 @@
 {
-  "name": "local-pomodoro-page",
+  "name": "homepage",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Self-hostable Pomodoro page with cross-device sync.",
+  "description": "Personal browser start page with cross-device sync.",
   "dependencies": {
     "@vercel/postgres": "^0.10.0"
   },
