@@ -2,7 +2,7 @@
 // store drive re-renders from there.
 
 import { api } from './api.js';
-import { state, replaceState, render, pullState, subscribe, setUnauthedHandler } from './store.js';
+import { state, replaceState, render, pullState, subscribe, setUnauthedHandler, ensureDay } from './store.js';
 import { startThemeClock, applyTheme } from './theme.js';
 import { mountTimer } from './timer-panel.js';
 import { sessionsToday, timer, reset as resetTimer } from './pomodoro.js';
@@ -14,6 +14,12 @@ import { mountWeather } from './weather.js';
 import { mountSearch } from './search.js';
 import { mountQuote } from './quote.js';
 import { mountSettings } from './settings.js';
+import { mountIntention } from './intention.js';
+import { mountRecap } from './recap.js';
+import { wireKeys } from './keys.js';
+import { mountStage, onStage, setStage } from './stage.js';
+import { mountClock } from './clock.js';
+import { mountWallpaper } from './wallpaper.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -34,7 +40,7 @@ function showLogin() {
 }
 
 // ---------- Dock + floating panel ----------
-const PANEL_TITLES = { tasks: 'Tasks', listen: 'Listen', notes: 'Notes' };
+const PANEL_TITLES = { tasks: 'Tasks', listen: 'Listen', notes: 'Notes', recap: 'Today' };
 let openPanel = null;
 
 function showPanel(name) {
@@ -46,22 +52,27 @@ function showPanel(name) {
   for (const key of Object.keys(PANEL_TITLES)) {
     $(`panel-${key}`).hidden = key !== name;
   }
+  panel.classList.toggle('panel--right', name === 'recap');
   panel.hidden = false;
   document.querySelectorAll('.dock-btn[data-panel]').forEach(b => {
     b.classList.toggle('is-active', b.dataset.panel === name);
   });
+  $('session-count').classList.toggle('is-active', name === 'recap');
 
   // Autofocus the field a panel exists for, so it's usable straight away.
   const field = name === 'notes'
     ? panel.querySelector('.notes-area')
-    : name === 'tasks' ? panel.querySelector('.task-input') : null;
+    : name === 'tasks' ? panel.querySelector('[data-list="today"].task-input') : null;
   if (field) setTimeout(() => field.focus(), 0);
 }
 
 function hidePanel() {
   openPanel = null;
-  $('panel').hidden = true;
+  const panel = $('panel');
+  panel.hidden = true;
+  panel.classList.remove('panel--right');
   document.querySelectorAll('.dock-btn[data-panel]').forEach(b => b.classList.remove('is-active'));
+  $('session-count').classList.remove('is-active');
 }
 
 function wireDock() {
@@ -69,6 +80,7 @@ function wireDock() {
     b.addEventListener('click', () => showPanel(b.dataset.panel));
   });
   $('panel-close').addEventListener('click', hidePanel);
+  $('session-count').addEventListener('click', () => showPanel('recap'));
 
   $('fullscreen-btn').addEventListener('click', () => {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
@@ -117,16 +129,33 @@ function mountDate(el) {
 function mountAll() {
   mountDate($('date'));
   quoteApi = mountQuote($('quote'));
+  mountStage();
+  mountClock($('clock-root'));
+  mountIntention($('intention'));
   mountTimer($('timer-root'));
   searchApi = mountSearch($('search-root'));
   mountFavorites($('favorites-root'));
   mountTasks($('panel-tasks'));
   mountNotes($('panel-notes'));
+  mountRecap($('panel-recap'));
   mountStations($('stations-root'), $('player'));
   mountWeather($('weather'));
+  mountWallpaper($('wallpaper'));
   wireDock();
   wireCurrentTask();
   wireSessionCount();
+  onStage((name) => {
+    if (name === 'start' && searchApi) searchApi.focus();
+  });
+  wireKeys({
+    isApp: () => loginEl.hidden,
+    isBlocked: () => !!document.querySelector('.settings[open]'),
+    showPanel,
+    hidePanel,
+    getOpenPanel: () => openPanel,
+    focusSearch: () => { setStage('start'); searchApi && searchApi.focus(); },
+    blurSearch: () => searchApi && searchApi.blur(),
+  });
   mountSettings({
     onSearchChange: () => searchApi && searchApi.paint(),
     onQuoteChange: () => quoteApi && quoteApi(),
@@ -187,34 +216,23 @@ $('login-form').addEventListener('submit', async (e) => {
   }
 });
 
-// ---------- Keyboard ----------
-// The search field takes focus on load, so single-letter shortcuts would be
-// swallowed by it. Only these, which coexist with a live text field.
-document.addEventListener('keydown', (e) => {
-  if (!loginEl.hidden) return;
-  const input = document.querySelector('.search-input');
-
-  if (e.key === 'Escape') {
-    if (openPanel) return hidePanel();
-    if (input && document.activeElement === input) input.blur();
-    return;
-  }
-  if (e.key === '/' && input && document.activeElement !== input) {
-    e.preventDefault();
-    input.focus();
-  }
-});
-
 // ---------- Cross-device sync ----------
 let lastFocus = Date.now();
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && loginEl.hidden) pullState();
+  if (!document.hidden && loginEl.hidden) {
+    ensureDay();
+    pullState();
+  }
 });
 window.addEventListener('focus', () => {
   if (loginEl.hidden && Date.now() - lastFocus > 5000) pullState();
   lastFocus = Date.now();
 });
-setInterval(() => { if (loginEl.hidden) pullState(); }, 60_000);
+setInterval(() => {
+  if (!loginEl.hidden) return;
+  ensureDay();
+  pullState();
+}, 60_000);
 
 // ---------- Init ----------
 (async function boot() {

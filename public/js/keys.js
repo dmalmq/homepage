@@ -1,0 +1,129 @@
+// Shortcuts fire only when you're not typing. Search still takes focus on
+// load, so the common case stays "open a tab and type a query." Escape blurs
+// the field (or closes a panel); after that, the keys below are live.
+
+import { start, timer } from './pomodoro.js';
+import { openFavorite } from './favorites.js';
+import { getStage, setStage } from './stage.js';
+
+export const SHORTCUTS = [
+  ['space', 'Start or pause a session'],
+  ['p', 'Pomodoro'],
+  ['1–8', 'Open a favorite'],
+  ['t', 'Tasks'],
+  ['n', 'Notes'],
+  ['l', 'Listen'],
+  ['r', 'Today'],
+  ['/', 'Search'],
+  ['?', 'This list'],
+  ['esc', 'Close'],
+];
+
+export function keysMarkup() {
+  return SHORTCUTS.map(([key, label]) =>
+    `<div><kbd>${key}</kbd><span>${label}</span></div>`).join('');
+}
+
+export function wireKeys({
+  isApp,
+  isBlocked,
+  showPanel,
+  hidePanel,
+  getOpenPanel,
+  focusSearch,
+  blurSearch,
+}) {
+  const root = document.getElementById('keys');
+  root.innerHTML = `
+    <div class="keys-card" role="dialog" aria-label="Keyboard shortcuts">
+      <div class="keys-list">${keysMarkup()}</div>
+    </div>`;
+
+  const hideKeys = () => { root.hidden = true; };
+  const showKeys = () => { root.hidden = false; };
+  const keysOpen = () => !root.hidden;
+
+  root.addEventListener('click', (e) => {
+    if (e.target === root) hideKeys();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (!isApp()) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (isBlocked && isBlocked()) return;
+
+    if (e.key === 'Escape') {
+      if (keysOpen()) { hideKeys(); return; }
+      if (isEditable(e.target)) {
+        e.target.blur();
+        return;
+      }
+      if (getOpenPanel()) { hidePanel(); return; }
+      blurSearch();
+      return;
+    }
+
+    if (keysOpen()) {
+      if (e.key === '?') { e.preventDefault(); hideKeys(); }
+      return;
+    }
+
+    if (isEditable(e.target)) return;
+
+    if (e.key === '?') {
+      e.preventDefault();
+      if (keysOpen()) hideKeys();
+      else showKeys();
+      return;
+    }
+
+    if (e.key === '/') {
+      e.preventDefault();
+      hideKeys();
+      setStage('start');
+      focusSearch();
+      return;
+    }
+
+    if (e.key === 'p') {
+      e.preventDefault();
+      hideKeys();
+      setStage('pomodoro');
+      return;
+    }
+
+    if (e.key === ' ') {
+      if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A') return;
+      e.preventDefault();
+      hideKeys();
+      if (getStage() !== 'pomodoro') {
+        setStage('pomodoro');
+        if (!timer.running) start();
+        return;
+      }
+      start();
+      return;
+    }
+
+    if (e.key >= '1' && e.key <= '8') {
+      e.preventDefault();
+      openFavorite(Number(e.key) - 1);
+      return;
+    }
+
+    const panelFor = { t: 'tasks', n: 'notes', l: 'listen', r: 'recap' }[e.key];
+    if (panelFor) {
+      e.preventDefault();
+      hideKeys();
+      showPanel(panelFor);
+    }
+  });
+}
+
+function isEditable(el) {
+  if (!el) return false;
+  const tag = el.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  if (el.isContentEditable) return true;
+  return false;
+}

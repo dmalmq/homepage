@@ -54,11 +54,11 @@ function renderFavorites() {
     return;
   }
 
-  for (const fav of state.favorites) {
+  state.favorites.forEach((fav, i) => {
     const a = document.createElement('a');
     a.className = 'fav';
     a.href = normalizeUrl(fav.url);
-    a.title = fav.url;
+    a.title = `${i + 1} · ${fav.url}`;
     // New tab for the same reason as search. noopener also stops the opened
     // page reaching back through window.opener.
     a.target = '_blank';
@@ -84,7 +84,15 @@ function renderFavorites() {
 
     a.append(mark, label);
     gridEl.append(a);
-  }
+  });
+}
+
+/** Open the favorite at a 0-based index. Used by the 1–8 shortcuts. */
+export function openFavorite(index) {
+  const fav = state.favorites[index];
+  if (!fav || !fav.url) return false;
+  window.open(normalizeUrl(fav.url), '_blank', 'noopener');
+  return true;
 }
 
 // ---------- Editor (rendered inside the settings dialog) ----------

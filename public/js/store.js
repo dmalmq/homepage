@@ -19,8 +19,18 @@ export const DEFAULTS = {
   search: { engine: 'duckduckgo' },
   weather: { lat: null, lon: null, label: '' },
   ground: { mode: 'auto' },           // auto | dawn | day | dusk | night
+  wallpaper: {                        // mesh | image | folder — folder handle is local
+    mode: 'mesh',
+    url: '',
+    interval: 5,                      // minutes; 0 = only when the tab opens
+  },
   showQuote: true,
   useFavicons: false,
+  intention: '',                      // one line for the day; cleared at midnight
+  later: [],                          // [{ id, text }] — parked, not today's queue
+  taskDay: '',                        // YYYY-MM-DD of the last midnight rollover
+  carryTasks: true,                   // unfinished today-tasks survive midnight
+  doneToday: 0,                       // tasks marked done since rollover
   updatedAt: 0,
 };
 
@@ -81,6 +91,7 @@ export function replaceState(incoming) {
   for (const k of Object.keys(state)) delete state[k];
   Object.assign(state, next);
   pruneSessions();
+  if (applyDayRollover(state)) schedulePush();
   serverTs = state.updatedAt || 0;
 }
 
@@ -94,6 +105,56 @@ function pruneSessions() {
   const cutoff = Date.now() - SESSION_RETENTION_MS;
   if (!Array.isArray(state.sessions)) { state.sessions = []; return; }
   state.sessions = state.sessions.filter(s => s && typeof s.t === 'number' && s.t > cutoff);
+}
+
+/** Local calendar day as YYYY-MM-DD. */
+export function todayKey(now = Date.now()) {
+  const d = new Date(now);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Tick the day over: drop finished today-tasks, carry or park the rest,
+ * clear the intention. First run after the field is introduced only stamps
+ * the date so existing queues aren't wiped. Mutates `s`; returns whether
+ * anything changed.
+ */
+export function applyDayRollover(s, today = todayKey()) {
+  if (!Array.isArray(s.later)) s.later = [];
+  if (!Array.isArray(s.tasks)) s.tasks = [];
+  if (s.taskDay === today) return false;
+
+  if (!s.taskDay) {
+    s.taskDay = today;
+    if (!s.doneToday) s.doneToday = s.tasks.filter(t => t && t.done).length;
+    return true;
+  }
+
+  const undone = s.tasks.filter(t => t && !t.done);
+  if (s.carryTasks !== false) {
+    s.tasks = undone;
+  } else {
+    for (const t of undone) s.later.push({ id: t.id, text: t.text });
+    s.tasks = [];
+  }
+
+  s.intention = '';
+  s.doneToday = 0;
+  s.taskDay = today;
+
+  if (s.currentTaskId && !s.tasks.some(t => t.id === s.currentTaskId)) {
+    const next = s.tasks.find(t => !t.done);
+    s.currentTaskId = next ? next.id : null;
+  }
+  return true;
+}
+
+/** Rollover if the local date has changed, then persist and re-render. */
+export function ensureDay() {
+  if (applyDayRollover(state)) commit();
 }
 
 export function schedulePush() {

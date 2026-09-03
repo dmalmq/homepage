@@ -14,6 +14,10 @@
 
   <!-- The colour field. Pure CSS gradients, so nothing is fetched. -->
   <div class="mesh" aria-hidden="true"></div>
+  <div id="wallpaper" class="wallpaper" aria-hidden="true">
+    <div class="wallpaper-layer"></div>
+    <div class="wallpaper-layer"></div>
+  </div>
   <div class="scrim" aria-hidden="true"></div>
 
   <!-- Login gate -->
@@ -41,12 +45,27 @@
     </header>
 
     <main class="stage">
-      <button id="current-task" class="stage-task" type="button"></button>
-      <div id="timer-root"></div>
+      <div class="stage-tabs" role="tablist" aria-label="View">
+        <button type="button" class="stage-tab" role="tab" id="tab-start"
+                data-stage="start" aria-controls="stage-start" aria-selected="true">Home</button>
+        <button type="button" class="stage-tab" role="tab" id="tab-pomodoro"
+                data-stage="pomodoro" aria-controls="stage-pomodoro" aria-selected="false">Pomodoro</button>
+      </div>
 
-      <div class="jump">
-        <div id="search-root"></div>
-        <div id="favorites-root" class="fav-row"></div>
+      <div id="stage-start" class="stage-view" role="tabpanel" aria-labelledby="tab-start">
+        <div id="clock-root"></div>
+        <div class="jump">
+          <div id="search-root"></div>
+          <div id="favorites-root" class="fav-row"></div>
+        </div>
+      </div>
+
+      <div id="stage-pomodoro" class="stage-view" role="tabpanel" aria-labelledby="tab-pomodoro" hidden>
+        <div class="stage-copy">
+          <p id="intention" class="stage-intention" tabindex="0" role="button"></p>
+          <button id="current-task" class="stage-task" type="button"></button>
+        </div>
+        <div id="timer-root"></div>
       </div>
     </main>
 
@@ -63,7 +82,7 @@
     </nav>
 
     <nav class="dock dock--right" aria-label="Settings">
-      <span id="session-count" class="dock-count" title="Focus sessions finished today"></span>
+      <button type="button" id="session-count" class="dock-count" title="Today’s focus" aria-label="Today’s focus"></button>
       <button type="button" class="dock-btn" id="settings-open" title="Settings" aria-label="Settings">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
       </button>
@@ -83,9 +102,11 @@
       <div id="panel-tasks"  class="panel-body" hidden></div>
       <div id="panel-listen" class="panel-body" hidden><div id="stations-root" class="stations"></div></div>
       <div id="panel-notes"  class="panel-body" hidden></div>
+      <div id="panel-recap"  class="panel-body" hidden></div>
     </section>
 
     <div id="player" class="player" hidden></div>
+    <div id="keys" class="keys" hidden></div>
 
     <!-- Settings -->
     <dialog id="settings" class="settings">
@@ -111,6 +132,12 @@
         </fieldset>
 
         <fieldset class="field">
+          <legend>Keys</legend>
+          <p class="field-note">Search is focused on load, so type a query straight away. Escape, then a key.</p>
+          <div id="keys-settings" class="keys-list keys-list--settings"></div>
+        </fieldset>
+
+        <fieldset class="field">
           <legend>Appearance</legend>
           <div class="field-grid">
             <label>Colour<select id="ground-mode">
@@ -125,6 +152,38 @@
             <input id="show-quote" type="checkbox" />
             Show a quote in the corner
           </label>
+
+          <div class="field-grid wallpaper-mode">
+            <label>Background<select id="wallpaper-mode"></select></label>
+          </div>
+
+          <div id="wallpaper-image" class="wallpaper-opts" hidden>
+            <div class="field-row">
+              <label class="wallpaper-url">Address
+                <input id="wallpaper-url" type="url" placeholder="https://…" />
+              </label>
+            </div>
+            <div class="field-row">
+              <button type="button" id="wallpaper-pick-file" class="btn">Pick a picture</button>
+              <button type="button" id="wallpaper-clear-file" class="btn">Clear picture</button>
+            </div>
+            <p id="wallpaper-image-note" class="field-note"></p>
+          </div>
+
+          <div id="wallpaper-folder" class="wallpaper-opts" hidden>
+            <p class="field-note">
+              Pictures stay on this computer — the folder isn’t synced.
+              Chrome will ask for access the first time.
+            </p>
+            <div class="field-row">
+              <button type="button" id="wallpaper-pick-folder" class="btn">Choose a folder</button>
+              <button type="button" id="wallpaper-clear-folder" class="btn">Clear folder</button>
+            </div>
+            <div class="field-row">
+              <label>Change picture<select id="wallpaper-interval"></select></label>
+            </div>
+            <p id="wallpaper-folder-note" class="field-note"></p>
+          </div>
         </fieldset>
 
         <fieldset class="field">
@@ -132,6 +191,16 @@
           <div class="field-row">
             <label>Engine<select id="engine-select"></select></label>
           </div>
+          <p id="bang-note" class="field-note"></p>
+        </fieldset>
+
+        <fieldset class="field">
+          <legend>Tasks</legend>
+          <label class="field-check">
+            <input id="carry-tasks" type="checkbox" />
+            Keep unfinished tasks tomorrow
+          </label>
+          <p class="field-note">Turned off, anything still open at midnight moves to Later.</p>
         </fieldset>
 
         <fieldset class="field">

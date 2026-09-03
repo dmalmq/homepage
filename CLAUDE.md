@@ -12,6 +12,16 @@ vercel env pull      # pulls DB connection + env vars into .env.local
 vercel dev           # run frontend + api functions locally
 ```
 
+Run Grok **inside WSL**, not Windows PowerShell:
+
+```bash
+wsl
+cd /mnt/c/Repositories/homepage
+grok
+```
+
+Windows PowerShell opens a new console for every agent command, and `npm.cmd` / Chrome add more. WSL keeps the whole session in one terminal. If a session is still on Windows `pwsh`, wrap commands in `wsl -e bash -lc '...'` and never launch a visible Chrome for verification — use `chrome-headless-shell` or skip the browser.
+
 There is no build step and no `scripts` block — Vercel serves `public/` statically and
 treats each file in `api/` as a function. The frontend uses native ES modules
 (`<script type="module">`), which is why it can be split across files without a bundler.

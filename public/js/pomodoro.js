@@ -100,7 +100,10 @@ function complete() {
 
     if (state.currentTaskId) {
       const task = state.tasks.find(t => t.id === state.currentTaskId);
-      if (task) task.done = true;
+      if (task && !task.done) {
+        task.done = true;
+        state.doneToday = (state.doneToday || 0) + 1;
+      }
       state.currentTaskId = nextTaskId();
     }
 
