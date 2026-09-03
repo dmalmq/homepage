@@ -34,6 +34,12 @@ export function mountSettings({ onSearchChange = () => {}, onQuoteChange = () =>
   }
 
   $('settings-open').addEventListener('click', () => { paint(); dialog.showModal(); });
+  dialog.addEventListener('pointerdown', (e) => {
+    const box = dialog.getBoundingClientRect();
+    const outside = e.clientX < box.left || e.clientX > box.right
+      || e.clientY < box.top || e.clientY > box.bottom;
+    if (outside) dialog.close();
+  });
 
   // ---------- Timer ----------
   bindNumber('dur-pomodoro', 1, 180, v => { state.durations.pomodoro = v; syncToDurations(); });

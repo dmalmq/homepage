@@ -5,10 +5,13 @@
 import { start, timer } from './pomodoro.js';
 import { openFavorite } from './favorites.js';
 import { getStage, setStage } from './stage.js';
+import { stop as stopMusic } from './stations.js';
 
 export const SHORTCUTS = [
   ['space', 'Start or pause a session'],
+  ['h', 'Home'],
   ['p', 'Pomodoro'],
+  ['s', 'Stop music'],
   ['1–8', 'Open a favorite'],
   ['t', 'Tasks'],
   ['n', 'Notes'],
@@ -85,10 +88,24 @@ export function wireKeys({
       return;
     }
 
+    if (e.key === 'h') {
+      e.preventDefault();
+      hideKeys();
+      setStage('start');
+      return;
+    }
+
     if (e.key === 'p') {
       e.preventDefault();
       hideKeys();
       setStage('pomodoro');
+      return;
+    }
+
+    if (e.key === 's') {
+      e.preventDefault();
+      hideKeys();
+      stopMusic();
       return;
     }
 

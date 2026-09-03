@@ -9,7 +9,7 @@ import { sessionsToday, timer, reset as resetTimer } from './pomodoro.js';
 import { mountTasks } from './tasks.js';
 import { mountNotes } from './notes.js';
 import { mountFavorites } from './favorites.js';
-import { mountStations } from './stations.js';
+import { mountStations, hidePlayer } from './stations.js';
 import { mountWeather } from './weather.js';
 import { mountSearch } from './search.js';
 import { mountQuote } from './quote.js';
@@ -17,7 +17,7 @@ import { mountSettings } from './settings.js';
 import { mountIntention } from './intention.js';
 import { mountRecap } from './recap.js';
 import { wireKeys } from './keys.js';
-import { mountStage, onStage, setStage } from './stage.js';
+import { mountStage, setStage } from './stage.js';
 import { mountClock } from './clock.js';
 import { mountWallpaper } from './wallpaper.js';
 
@@ -86,6 +86,29 @@ function wireDock() {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
     else document.exitFullscreen();
   });
+
+  wireDismiss();
+}
+
+function wireDismiss() {
+  document.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    const t = e.target;
+    if (!(t instanceof Node)) return;
+    if (document.querySelector('.settings[open]')) return;
+    if ($('keys') && !$('keys').hidden) return;
+
+    if (openPanel) {
+      const inPanel = $('panel').contains(t);
+      const opensPanel = t.closest('.dock-btn[data-panel], #session-count, #current-task');
+      if (!inPanel && !opensPanel) hidePanel();
+    }
+
+    const player = $('player');
+    if (player && !player.hidden && !player.classList.contains('is-tucked')) {
+      if (!player.contains(t) && !t.closest('.station')) hidePlayer();
+    }
+  });
 }
 
 // ---------- Current task line ----------
@@ -144,9 +167,6 @@ function mountAll() {
   wireDock();
   wireCurrentTask();
   wireSessionCount();
-  onStage((name) => {
-    if (name === 'start' && searchApi) searchApi.focus();
-  });
   wireKeys({
     isApp: () => loginEl.hidden,
     isBlocked: () => !!document.querySelector('.settings[open]'),

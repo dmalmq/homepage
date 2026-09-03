@@ -58,6 +58,7 @@ export function toEmbed(rawUrl) {
 let chipsEl = null;
 let playerEl = null;
 let playingId = null;
+let tucked = false;
 
 export function mountStations(chips, player) {
   chipsEl = chips;
@@ -96,6 +97,8 @@ function renderChips() {
 export function play(station) {
   const embed = toEmbed(station.url);
   playerEl.innerHTML = '';
+  tucked = false;
+  playerEl.classList.remove('is-tucked');
 
   if (!embed) {
     playerEl.hidden = false;
@@ -108,6 +111,31 @@ export function play(station) {
     return;
   }
 
+  const bar = document.createElement('div');
+  bar.className = 'player-bar';
+
+  const title = document.createElement('span');
+  title.className = 'player-title';
+  title.textContent = station.label || 'Playing';
+
+  const hide = document.createElement('button');
+  hide.type = 'button';
+  hide.className = 'player-hide';
+  hide.textContent = 'Hide';
+  hide.setAttribute('aria-expanded', 'true');
+  hide.addEventListener('click', toggleTuck);
+
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'player-stop';
+  close.textContent = 'Stop';
+  close.addEventListener('click', stop);
+
+  bar.append(title, hide, close);
+
+  const stage = document.createElement('div');
+  stage.className = 'player-stage';
+
   const frame = document.createElement('iframe');
   frame.src = embed.src;
   frame.title = station.label || 'Player';
@@ -116,20 +144,46 @@ export function play(station) {
   frame.allowFullscreen = true;
   frame.className = embed.ratio ? 'player-frame is-video' : 'player-frame';
   if (!embed.ratio) frame.height = embed.height;
-
-  const close = document.createElement('button');
-  close.type = 'button';
-  close.className = 'player-close';
-  close.textContent = 'Stop';
-  close.addEventListener('click', stop);
+  stage.append(frame);
 
   playerEl.hidden = false;
-  playerEl.append(close, frame);
+  playerEl.append(bar, stage);
   playingId = station.id;
   renderChips();
 }
 
+function toggleTuck() {
+  if (tucked) showPlayer();
+  else hidePlayer();
+}
+
+/** Collapse the chrome; the iframe stays so audio keeps going. */
+export function hidePlayer() {
+  if (!playerEl || playerEl.hidden || tucked) return;
+  if (!playerEl.querySelector('.player-stage')) return;
+  tucked = true;
+  playerEl.classList.add('is-tucked');
+  const hide = playerEl.querySelector('.player-hide');
+  if (hide) {
+    hide.textContent = 'Show';
+    hide.setAttribute('aria-expanded', 'false');
+  }
+}
+
+export function showPlayer() {
+  if (!playerEl || playerEl.hidden || !tucked) return;
+  tucked = false;
+  playerEl.classList.remove('is-tucked');
+  const hide = playerEl.querySelector('.player-hide');
+  if (hide) {
+    hide.textContent = 'Hide';
+    hide.setAttribute('aria-expanded', 'true');
+  }
+}
+
 export function stop() {
+  tucked = false;
+  playerEl.classList.remove('is-tucked');
   playerEl.innerHTML = '';
   playerEl.hidden = true;
   playingId = null;

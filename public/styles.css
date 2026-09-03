@@ -689,16 +689,66 @@ html[data-wallpaper] .scrim {
   -webkit-backdrop-filter: blur(22px);
   box-shadow: 0 20px 60px rgb(0 0 0 / 0.35);
 }
+.player-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.player-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.player-hide,
+.player-stop {
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink-soft);
+  background: none;
+  border: 0;
+  padding: 2px 4px;
+  cursor: pointer;
+}
+.player-hide:hover,
+.player-stop:hover { color: var(--ink); }
+
+.player-stage { position: relative; }
 .player-frame { width: 100%; border: 0; border-radius: 8px; display: block; }
 .player-frame.is-video { aspect-ratio: 16 / 9; height: auto; }
-.player-close {
-  display: block; margin: 0 0 6px auto;
-  font: inherit; font-size: 12px;
-  color: var(--ink-soft);
-  background: none; border: 0; cursor: pointer;
-}
-.player-close:hover { color: var(--ink); }
 .player-note { font-size: 13px; color: var(--ink-soft); padding: 4px 6px 8px; }
+
+/* Hide must not use display:none or [hidden] — YouTube (and sometimes Spotify)
+   pause the embed the moment the iframe leaves the viewport or the layout. The
+   chrome collapses; the iframe stays in the corner at full size, invisible,
+   still intersecting the page so audio keeps going. */
+.player.is-tucked {
+  width: auto;
+  max-width: min(320px, calc(100vw - 44px));
+  padding: 6px 10px;
+}
+.player.is-tucked .player-bar { margin-bottom: 0; }
+.player.is-tucked .player-stage {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  width: 280px;
+  height: 160px;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.player.is-tucked .player-frame,
+.player.is-tucked .player-frame.is-video {
+  width: 280px;
+  height: 160px;
+  aspect-ratio: auto;
+}
 
 /* ---------- Settings ---------- */
 .ghost-btn {
