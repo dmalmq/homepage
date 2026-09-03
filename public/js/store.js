@@ -12,14 +12,14 @@ export const DEFAULTS = {
   currentTaskId: null,
   notes: '',
   completedPomodoros: 0,
-  sessions: [],                       // [{ t: epochMs, minutes }] — drives the ribbon
+  sessions: [],                       // [{ t: epochMs, minutes }] — drives the session count
   sound: 'chime',
   favorites: [],                      // [{ id, label, url }]
   stations: [],                       // [{ id, kind: 'spotify'|'youtube', label, url }]
   search: { engine: 'duckduckgo' },
   weather: { lat: null, lon: null, label: '' },
-  ground: { mode: 'auto' },           // auto | light | dark
-  ribbon: { startHour: 6, endHour: 22 },
+  ground: { mode: 'auto' },           // auto | dawn | day | dusk | night
+  showQuote: true,
   useFavicons: false,
   updatedAt: 0,
 };

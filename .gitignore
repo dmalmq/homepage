@@ -8,3 +8,4 @@ node_modules
 
 # Machine-local: ln -s copies here, so this would vendor third-party skills
 .claude/skills/
+.env*

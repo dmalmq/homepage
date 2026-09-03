@@ -1,17 +1,18 @@
-// Boot: gate on the session cookie, then mount every panel once and let the
+// Boot: gate on the session cookie, then mount everything once and let the
 // store drive re-renders from there.
 
 import { api } from './api.js';
-import { replaceState, render, pullState, setUnauthedHandler } from './store.js';
+import { state, replaceState, render, pullState, subscribe, setUnauthedHandler } from './store.js';
 import { startThemeClock, applyTheme } from './theme.js';
-import { mountRibbon, mountDate } from './ribbon.js';
-import { mountTimer, setMode } from './pomodoro.js';
+import { mountTimer } from './timer-panel.js';
+import { sessionsToday, timer, reset as resetTimer } from './pomodoro.js';
 import { mountTasks } from './tasks.js';
 import { mountNotes } from './notes.js';
 import { mountFavorites } from './favorites.js';
 import { mountStations } from './stations.js';
 import { mountWeather } from './weather.js';
 import { mountSearch } from './search.js';
+import { mountQuote } from './quote.js';
 import { mountSettings } from './settings.js';
 
 const $ = (id) => document.getElementById(id);
@@ -23,6 +24,7 @@ const errEl = $('login-err');
 
 let mounted = false;
 let searchApi = null;
+let quoteApi = null;
 
 function showLogin() {
   appEl.hidden = true;
@@ -31,18 +33,103 @@ function showLogin() {
   setTimeout(() => pwEl.focus(), 0);
 }
 
+// ---------- Dock + floating panel ----------
+const PANEL_TITLES = { tasks: 'Tasks', listen: 'Listen', notes: 'Notes' };
+let openPanel = null;
+
+function showPanel(name) {
+  const panel = $('panel');
+  if (openPanel === name) return hidePanel();
+
+  openPanel = name;
+  $('panel-title').textContent = PANEL_TITLES[name] || '';
+  for (const key of Object.keys(PANEL_TITLES)) {
+    $(`panel-${key}`).hidden = key !== name;
+  }
+  panel.hidden = false;
+  document.querySelectorAll('.dock-btn[data-panel]').forEach(b => {
+    b.classList.toggle('is-active', b.dataset.panel === name);
+  });
+
+  // Autofocus the field a panel exists for, so it's usable straight away.
+  const field = name === 'notes'
+    ? panel.querySelector('.notes-area')
+    : name === 'tasks' ? panel.querySelector('.task-input') : null;
+  if (field) setTimeout(() => field.focus(), 0);
+}
+
+function hidePanel() {
+  openPanel = null;
+  $('panel').hidden = true;
+  document.querySelectorAll('.dock-btn[data-panel]').forEach(b => b.classList.remove('is-active'));
+}
+
+function wireDock() {
+  document.querySelectorAll('.dock-btn[data-panel]').forEach(b => {
+    b.addEventListener('click', () => showPanel(b.dataset.panel));
+  });
+  $('panel-close').addEventListener('click', hidePanel);
+
+  $('fullscreen-btn').addEventListener('click', () => {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+    else document.exitFullscreen();
+  });
+}
+
+// ---------- Current task line ----------
+function wireCurrentTask() {
+  const el = $('current-task');
+  // Clicking it opens the queue, which is the only place to change it now.
+  el.addEventListener('click', () => showPanel('tasks'));
+
+  const paint = () => {
+    const task = state.tasks.find(t => t.id === state.currentTaskId);
+    el.textContent = task ? task.text : 'No task selected';
+    el.classList.toggle('is-empty', !task);
+    el.title = task ? 'Open the queue' : 'Pick something to work on';
+  };
+  paint();
+  subscribe(paint);
+}
+
+function wireSessionCount() {
+  const el = $('session-count');
+  const paint = () => {
+    const n = sessionsToday().length;
+    el.textContent = n === 1 ? '1 session' : `${n} sessions`;
+  };
+  paint();
+  subscribe(paint);
+  setInterval(paint, 60_000);
+}
+
+// ---------- Date ----------
+function mountDate(el) {
+  const paint = () => {
+    el.textContent = new Date().toLocaleDateString([], {
+      weekday: 'long', day: 'numeric', month: 'long',
+    });
+  };
+  paint();
+  setInterval(paint, 60_000);
+}
+
 function mountAll() {
   mountDate($('date'));
-  mountRibbon($('ribbon-root'));
-  searchApi = mountSearch($('search-root'));
+  quoteApi = mountQuote($('quote'));
   mountTimer($('timer-root'));
-  mountTasks($('tasks-root'));
+  searchApi = mountSearch($('search-root'));
   mountFavorites($('favorites-root'));
+  mountTasks($('panel-tasks'));
+  mountNotes($('panel-notes'));
   mountStations($('stations-root'), $('player'));
-  mountNotes($('notes-root'));
   mountWeather($('weather'));
+  wireDock();
+  wireCurrentTask();
+  wireSessionCount();
   mountSettings({
     onSearchChange: () => searchApi && searchApi.paint(),
+    onQuoteChange: () => quoteApi && quoteApi(),
     onLogout: async () => { await api.logout(); showLogin(); },
   });
   startThemeClock();
@@ -51,13 +138,15 @@ function mountAll() {
 function enterApp(remoteState) {
   replaceState(remoteState || {});
   applyTheme();
-  setMode('pomodoro');
+  // Seed the readout from the durations we just loaded. Guarded so a sync pull
+  // can never yank a running timer back to the top.
+  if (!timer.running) resetTimer();
 
   loginEl.hidden = true;
   appEl.hidden = false;
 
   if (!mounted) { mountAll(); mounted = true; }
-  else render();
+  else { render(); if (quoteApi) quoteApi(); }
 
   if (searchApi) searchApi.focus();
 }
@@ -100,16 +189,19 @@ $('login-form').addEventListener('submit', async (e) => {
 
 // ---------- Keyboard ----------
 // The search field takes focus on load, so single-letter shortcuts would be
-// swallowed by it. Only these two, which coexist with a live text field.
+// swallowed by it. Only these, which coexist with a live text field.
 document.addEventListener('keydown', (e) => {
   if (!loginEl.hidden) return;
   const input = document.querySelector('.search-input');
-  if (!input) return;
-  if (e.key === '/' && document.activeElement !== input) {
+
+  if (e.key === 'Escape') {
+    if (openPanel) return hidePanel();
+    if (input && document.activeElement === input) input.blur();
+    return;
+  }
+  if (e.key === '/' && input && document.activeElement !== input) {
     e.preventDefault();
     input.focus();
-  } else if (e.key === 'Escape' && document.activeElement === input) {
-    input.blur();
   }
 });
 

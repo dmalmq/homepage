@@ -14,7 +14,7 @@ function clamp(value, lo, hi, fallback) {
   return Math.min(hi, Math.max(lo, n));
 }
 
-export function mountSettings({ onSearchChange = () => {}, onLogout = () => {} } = {}) {
+export function mountSettings({ onSearchChange = () => {}, onQuoteChange = () => {}, onLogout = () => {} } = {}) {
   const dialog = $('settings');
 
   fillOptions($('sound-select'), SOUNDS.map(s => [s.id, s.name]));
@@ -31,13 +31,16 @@ export function mountSettings({ onSearchChange = () => {}, onLogout = () => {} }
   $('sound-select').addEventListener('change', (e) => { state.sound = e.target.value; commit(); });
   $('sound-preview').addEventListener('click', () => playSound($('sound-select').value));
 
-  // ---------- Day ----------
-  bindNumber('ribbon-start', 0, 23, v => { state.ribbon.startHour = v; });
-  bindNumber('ribbon-end',   1, 24, v => { state.ribbon.endHour = v; });
+  // ---------- Appearance ----------
   $('ground-mode').addEventListener('change', (e) => {
     state.ground.mode = e.target.value;
     applyTheme();
     commit();
+  });
+  $('show-quote').addEventListener('change', (e) => {
+    state.showQuote = e.target.checked;
+    commit();
+    onQuoteChange();
   });
 
   // ---------- Search ----------
@@ -111,9 +114,8 @@ export function mountSettings({ onSearchChange = () => {}, onLogout = () => {} }
     $('dur-interval').value = state.durations.interval;
     $('sound-select').value = state.sound || 'chime';
 
-    $('ribbon-start').value = state.ribbon.startHour;
-    $('ribbon-end').value = state.ribbon.endHour;
     $('ground-mode').value = state.ground.mode || 'auto';
+    $('show-quote').checked = state.showQuote !== false;
 
     $('engine-select').value = state.search.engine || 'duckduckgo';
     $('use-favicons').checked = !!state.useFavicons;

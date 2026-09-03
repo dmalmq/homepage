@@ -3,22 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#1b1035" />
   <title>Homepage</title>
   <!-- Fonts are self-hosted: this page opens on every new tab, so it must not
        wait on a third-party round trip or swap typefaces mid-glance. -->
   <link rel="preload" href="fonts/plex-sans-var.woff2" as="font" type="font/woff2" crossorigin />
-  <link rel="preload" href="fonts/plex-cond-600.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+
+  <!-- The colour field. Pure CSS gradients, so nothing is fetched. -->
+  <div class="mesh" aria-hidden="true"></div>
+  <div class="scrim" aria-hidden="true"></div>
 
   <!-- Login gate -->
   <div id="login" class="login" hidden>
     <form id="login-form" class="login-card">
       <h1>Homepage</h1>
-      <!-- Password managers and screen readers expect a username field beside a
-           password field, even though this app has a single implicit user. -->
       <input type="text" name="username" value="homepage" autocomplete="username"
              hidden aria-hidden="true" tabindex="-1" />
       <input id="login-pw" type="password" placeholder="Password"
@@ -31,42 +32,57 @@
   <!-- Start page -->
   <div id="app" class="app" hidden>
 
-    <header class="masthead">
-      <p id="date" class="masthead-date"></p>
-      <p id="weather" class="masthead-weather"></p>
-      <button type="button" id="settings-open" class="ghost-btn">Settings</button>
+    <header class="topbar">
+      <div class="topbar-left">
+        <p id="date" class="topbar-date"></p>
+        <p id="weather" class="topbar-weather"></p>
+      </div>
+      <p id="quote" class="topbar-quote"></p>
     </header>
 
-    <section id="ribbon-root" class="hero" aria-label="Today"></section>
+    <main class="stage">
+      <button id="current-task" class="stage-task" type="button"></button>
+      <div id="timer-root"></div>
 
-    <div id="search-root" class="search-zone"></div>
-
-    <main class="panels">
-      <section class="panel">
-        <h2 class="panel-title">Focus</h2>
-        <div id="timer-root"></div>
-      </section>
-
-      <section class="panel">
-        <h2 class="panel-title">Queue</h2>
-        <div id="tasks-root"></div>
-      </section>
-
-      <section class="panel">
-        <h2 class="panel-title">Jump</h2>
-        <div id="favorites-root" class="fav-grid"></div>
-      </section>
+      <div class="jump">
+        <div id="search-root"></div>
+        <div id="favorites-root" class="fav-row"></div>
+      </div>
     </main>
 
-    <section class="strip">
-      <div class="strip-col">
-        <h2 class="panel-title">Listen</h2>
-        <div id="stations-root" class="stations"></div>
-      </div>
-      <div class="strip-col">
-        <h2 class="panel-title">Notes</h2>
-        <div id="notes-root" class="notes"></div>
-      </div>
+    <nav class="dock dock--left" aria-label="Panels">
+      <button type="button" class="dock-btn" data-panel="tasks" title="Tasks" aria-label="Tasks">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      </button>
+      <button type="button" class="dock-btn" data-panel="listen" title="Listen" aria-label="Listen">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+      </button>
+      <button type="button" class="dock-btn" data-panel="notes" title="Notes" aria-label="Notes">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+      </button>
+    </nav>
+
+    <nav class="dock dock--right" aria-label="Settings">
+      <span id="session-count" class="dock-count" title="Focus sessions finished today"></span>
+      <button type="button" class="dock-btn" id="settings-open" title="Settings" aria-label="Settings">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+      </button>
+      <button type="button" class="dock-btn" id="fullscreen-btn" title="Fullscreen" aria-label="Fullscreen">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+      </button>
+    </nav>
+
+    <!-- One floating panel; the dock swaps what's inside it. -->
+    <section id="panel" class="panel" hidden aria-live="polite">
+      <header class="panel-head">
+        <h2 id="panel-title"></h2>
+        <button type="button" id="panel-close" class="panel-close" aria-label="Close">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </header>
+      <div id="panel-tasks"  class="panel-body" hidden></div>
+      <div id="panel-listen" class="panel-body" hidden><div id="stations-root" class="stations"></div></div>
+      <div id="panel-notes"  class="panel-body" hidden></div>
     </section>
 
     <div id="player" class="player" hidden></div>
@@ -95,16 +111,20 @@
         </fieldset>
 
         <fieldset class="field">
-          <legend>Day</legend>
+          <legend>Appearance</legend>
           <div class="field-grid">
-            <label>Day starts<input id="ribbon-start" type="number" min="0" max="23" /></label>
-            <label>Day ends<input id="ribbon-end" type="number" min="1" max="24" /></label>
-            <label>Background<select id="ground-mode">
-              <option value="auto">Follows the hour</option>
-              <option value="light">Always light</option>
-              <option value="dark">Always dark</option>
+            <label>Colour<select id="ground-mode">
+              <option value="auto">Shifts with the hour</option>
+              <option value="dawn">Always dawn</option>
+              <option value="day">Always day</option>
+              <option value="dusk">Always dusk</option>
+              <option value="night">Always night</option>
             </select></label>
           </div>
+          <label class="field-check">
+            <input id="show-quote" type="checkbox" />
+            Show a quote in the corner
+          </label>
         </fieldset>
 
         <fieldset class="field">

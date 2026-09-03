@@ -25,9 +25,9 @@ Don't add one.
 | `public/styles.css` | Design tokens, the four time-of-day grounds, all layout |
 | `public/js/store.js` | Synced state, `DEFAULTS`, the last-write-wins sync loop |
 | `public/js/main.js` | Boot, login gate, mounts every panel once |
-| `public/js/ribbon.js` | The day ribbon — the page's hero element |
-| `public/js/pomodoro.js` | Timer, sounds, and the Focus panel |
-| `public/js/*.js` | One module per panel: tasks, notes, favorites, stations, weather, search, theme, settings |
+| `public/js/pomodoro.js` | Timer logic, sounds, session log |
+| `public/js/timer-panel.js` | The timer as rendered: pills, cycle dots, readout |
+| `public/js/*.js` | One module each: tasks, notes, favorites, stations, weather, search, quote, theme, settings |
 | `public/fonts/` | Self-hosted IBM Plex woff2 |
 | `api/login.js`, `logout.js` | Password auth, issues/clears the signed session cookie |
 | `api/state.js` | Read/write the synced state blob |
@@ -60,13 +60,26 @@ Don't add one.
 
 This page opens on every new tab, so two rules govern changes:
 
-- **Nothing fetches on load that isn't needed to read the page.** Fonts are self-hosted;
-  embeds don't exist in the DOM until a station is clicked; favicons are off by default.
+- **Nothing fetches on load that isn't needed to read the page.** The gradient is
+  CSS, the font is local, embeds don't exist in the DOM until a station is clicked,
+  favicons are off by default, and the quote list is bundled rather than fetched.
   Adding a blocking third-party request is a regression.
-- **One bold element, one signal colour.** The day ribbon is the hero; `--signal`
-  (amber) marks only *now* and a running timer. Everything else lives in greys derived
-  from `--fg-rgb`. Zones are separated by hairline rules and whitespace — no cards, no
-  fills, no drop shadows.
+- **The colour field is the only indulgence.** The timer stands in it; everything
+  else is white type and translucent glass, deliberately quiet so nothing competes
+  with the readout. Content that isn't the timer, search or favorites lives behind
+  the dock, one panel at a time.
 
-Adding a time-of-day ground means adding three values (`--ground`, `--fg`, `--fg-rgb`)
-to a `[data-phase]` block; every other tone derives from them.
+The mesh tracks the real hour. Adding a phase means adding a `--ground` and four
+`--blob-*` colours to a `[data-phase]` block; the mesh geometry is shared, so
+nothing else changes.
+
+White type over saturated colour is the standing legibility risk. `.scrim` exists
+solely to hold that contrast — if you brighten the blobs, check the scrim still
+carries the corners, where the docks sit.
+
+## History
+
+An earlier version of this page was a quiet, grey, information-dense start page
+built around a "day ribbon". It was deliberately replaced with the current
+colour-field design, which reverses its "one signal colour, no fills, no shadows"
+rules. Don't reintroduce those constraints by halves.

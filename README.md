@@ -9,18 +9,16 @@ of your day above everything else.
 
 ## What's on it
 
-- **Day ribbon** — today from morning to evening as one band, with a marker for now and
-  a solid block for every focus session you've finished. The clock and the session count
-  are the same object, because on a start page they answer the same question.
+- **The timer** — the centrepiece. Configurable durations, a dot per pomodoro in the
+  current long-break cycle, and six end sounds.
 - **Search** — focused on load, so you can open a tab and just start typing.
-- **Focus** — the Pomodoro timer: configurable durations, long-break interval, six end
-  sounds.
-- **Queue** — tasks. Finishing a focus session ticks off the current one and moves to
-  the next.
-- **Jump** — up to eight favourite sites as letter tiles.
-- **Listen** — Spotify and YouTube embeds.
-- **Notes** — one scratch field, saved as you type.
-- **Weather** — current conditions for a town you pick.
+- **Jump** — up to eight favourite sites, one click away.
+- **Tasks, Notes, Listen** — behind the dock at bottom-left, one panel at a time.
+  Finishing a focus session ticks off the current task and moves to the next.
+- **Weather and a quote** — in the corners, out of the way.
+
+The background is a CSS gradient mesh that shifts with the hour: dawn, day, dusk,
+night. You can pin it to one phase in settings.
 
 Everything except the running timer syncs across devices.
 
@@ -112,7 +110,7 @@ One JSONB row holds everything:
   "search":     { "engine": "duckduckgo" },
   "weather":    { "lat": null, "lon": null, "label": "" },
   "ground":     { "mode": "auto" },
-  "ribbon":     { "startHour": 6, "endHour": 22 },
+  "showQuote": true,
   "useFavicons": false,
   "updatedAt": 1700000000000
 }

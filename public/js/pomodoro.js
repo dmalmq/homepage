@@ -15,8 +15,15 @@ let endTime = 0;
 let handle = null;
 
 const tickListeners = new Set();
+const doneListeners = new Set();
+
+/** Subscribe to a finished interval. Receives the mode that just ended. */
+export function onComplete(fn) { doneListeners.add(fn); return () => doneListeners.delete(fn); }
+function emitComplete(mode) {
+  for (const fn of doneListeners) { try { fn(mode); } catch (e) { console.error(e); } }
+}
 /** Subscribe to the 4Hz tick. Used for text-only updates that must not trigger
- *  a full re-render (the timer readout and the ribbon's meta line). */
+ *  a full re-render (the timer readout, the session count). */
 export function onTick(fn) { tickListeners.add(fn); return () => tickListeners.delete(fn); }
 function emitTick() { for (const fn of tickListeners) { try { fn(); } catch (e) { console.error(e); } } }
 
@@ -85,6 +92,7 @@ function complete() {
   const finished = timer.mode;
   stopTicking();
   playSound();
+  emitComplete(finished);
 
   if (finished === 'pomodoro') {
     state.completedPomodoros = (state.completedPomodoros || 0) + 1;
@@ -188,52 +196,4 @@ export function playSound(id = state.sound) {
     if (!c) return;
     (SYNTHS[id] || SYNTHS.chime)(c, c.currentTime);
   } catch {}
-}
-
-// ---------- Panel ----------
-const MODE_LABELS = { pomodoro: 'Focus', short: 'Short break', long: 'Long break' };
-
-export function mountTimer(root) {
-  root.innerHTML = `
-    <div class="timer">
-      <div class="timer-modes" role="group" aria-label="Timer mode">
-        ${Object.entries(MODE_LABELS).map(([id, name]) =>
-          `<button type="button" class="timer-mode" data-mode="${id}">${name}</button>`).join('')}
-      </div>
-      <p class="timer-readout"><span class="timer-value"></span></p>
-      <div class="timer-progress"><span></span></div>
-      <div class="timer-controls">
-        <button type="button" class="btn btn--primary timer-start"></button>
-        <button type="button" class="btn timer-reset">Reset</button>
-      </div>
-    </div>`;
-
-  const value = root.querySelector('.timer-value');
-  const progress = root.querySelector('.timer-progress span');
-  const startBtn = root.querySelector('.timer-start');
-  const modes = [...root.querySelectorAll('.timer-mode')];
-
-  startBtn.addEventListener('click', start);
-  root.querySelector('.timer-reset').addEventListener('click', reset);
-  modes.forEach(b => b.addEventListener('click', () => {
-    if (timer.running) pause();
-    setMode(b.dataset.mode);
-  }));
-
-  const paint = () => {
-    value.textContent = formatClock(timer.remaining);
-    progress.style.width = timer.total ? `${(1 - timer.remaining / timer.total) * 100}%` : '0%';
-    startBtn.textContent = timer.running ? 'Pause' : (timer.remaining < timer.total ? 'Resume' : 'Start');
-    root.querySelector('.timer').dataset.mode = timer.mode;
-    root.querySelector('.timer').classList.toggle('is-running', timer.running);
-    modes.forEach(b => {
-      const on = b.dataset.mode === timer.mode;
-      b.classList.toggle('is-active', on);
-      b.setAttribute('aria-pressed', String(on));
-    });
-  };
-
-  paint();
-  onTick(paint);
-  return paint;
 }
