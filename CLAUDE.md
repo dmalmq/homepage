@@ -27,24 +27,6 @@ treats each file in `api/` as a function. The frontend uses native ES modules
 (`<script type="module">`), which is why it can be split across files without a bundler.
 Don't add one.
 
-## Layout
-
-| Path | What |
-|---|---|
-| `public/index.html` | Page structure and the settings dialog |
-| `public/styles.css` | Design tokens, the four time-of-day grounds, all layout |
-| `public/js/store.js` | Synced state, `DEFAULTS`, the last-write-wins sync loop |
-| `public/js/main.js` | Boot, login gate, mounts every panel once |
-| `public/js/pomodoro.js` | Timer logic, sounds, session log |
-| `public/js/timer-panel.js` | The timer as rendered: pills, cycle dots, readout |
-| `public/js/*.js` | One module each: tasks, notes, favorites, stations, weather, search, quote, theme, settings |
-| `public/fonts/` | Self-hosted IBM Plex woff2 |
-| `api/login.js`, `logout.js` | Password auth, issues/clears the signed session cookie |
-| `api/state.js` | Read/write the synced state blob |
-| `api/health.js` | Liveness + config check |
-| `api/_lib/` | Shared helpers (db access, cookie signing) |
-| `schema.sql` | Reference schema — created automatically on first login |
-
 ## Notes
 
 - **Two env vars are required:** `APP_PASSWORD` (login) and `APP_SECRET` (cookie
@@ -65,6 +47,8 @@ Don't add one.
 - Mutate `state` in place and call `commit()` (save + re-render) or `save()` (persist
   only, for fields being actively typed into). Never reassign `state` — every module
   holds the same reference.
+- `schema.sql` is a reference copy — the real schema is created automatically on
+  first login.
 
 ## Design constraints
 
