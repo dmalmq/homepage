@@ -1,0 +1,6 @@
+# core.autocrlf=true would hand a fresh clone CRLF shell scripts, which fail
+# with "bad interpreter: /bin/bash^M" outside Git Bash.
+*.sh text eol=lf
+
+# Be explicit rather than relying on binary detection.
+*.woff2 binary
