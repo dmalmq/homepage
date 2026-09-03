@@ -6,6 +6,11 @@
 //
 // Worth knowing: audio lives in the tab that started it. Opening a new tab gives
 // you a fresh page with no player, so keep one tab around for music.
+//
+// Embeds go through www.youtube.com rather than youtube-nocookie.com. The
+// nocookie domain is the more private choice, but it's widely blocked by
+// ad/tracker filters and DNS blocklists, and when it's blocked the iframe shows
+// a browser error page rather than anything explicable. Reliability wins here.
 
 import { state, commit, uid, subscribe } from './store.js';
 
@@ -29,18 +34,20 @@ export function toEmbed(rawUrl) {
   }
 
   const ytPlaylist = url.match(/[?&]list=([A-Za-z0-9_-]+)/);
-  const ytVideo = url.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  // /live/ is how YouTube shares an ongoing stream, and /v/ is the legacy form.
+  // Missing them meant a live URL silently failed to parse.
+  const ytVideo = url.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/|v\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
   if (ytVideo) {
     return {
       kind: 'youtube',
-      src: `https://www.youtube-nocookie.com/embed/${ytVideo[1]}?autoplay=1&rel=0`,
+      src: `https://www.youtube.com/embed/${ytVideo[1]}?autoplay=1&rel=0`,
       ratio: true,
     };
   }
   if (ytPlaylist && /youtube\.com/.test(url)) {
     return {
       kind: 'youtube',
-      src: `https://www.youtube-nocookie.com/embed/videoseries?list=${ytPlaylist[1]}&autoplay=1&rel=0`,
+      src: `https://www.youtube.com/embed/videoseries?list=${ytPlaylist[1]}&autoplay=1&rel=0`,
       ratio: true,
     };
   }

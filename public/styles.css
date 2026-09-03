@@ -477,7 +477,9 @@ a { color: inherit; text-decoration: none; }
   position: fixed;
   right: 22px;
   bottom: 74px;
-  width: min(400px, calc(100vw - 44px));
+  /* Narrow enough to clear the centred favorites row on a ~1280px window,
+     which the wider version used to clip. */
+  width: min(320px, calc(100vw - 44px));
   background: rgb(18 12 34 / 0.80);
   border: 1px solid var(--glass-line);
   border-radius: 14px;
