@@ -16,6 +16,14 @@ export async function ensureSchema() {
     VALUES (1, '{}'::jsonb)
     ON CONFLICT (id) DO NOTHING
   `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS login_attempts (
+      ip           TEXT PRIMARY KEY,
+      fails        INTEGER     NOT NULL DEFAULT 0,
+      window_start TIMESTAMPTZ NOT NULL DEFAULT now(),
+      locked_until TIMESTAMPTZ
+    )
+  `;
   schemaEnsured = true;
 }
 

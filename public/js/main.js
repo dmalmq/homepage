@@ -74,7 +74,9 @@ $('login-form').addEventListener('submit', async (e) => {
   const res = await api.login(password);
   if (!res.ok) {
     errEl.textContent =
-      res.status === 401 || res.error === 'invalid'
+      res.status === 429 || res.error === 'too-many'
+        ? `Too many attempts. Try again in ${Math.ceil((res.retryAfterSec || 900) / 60)} minutes.`
+      : res.status === 401 || res.error === 'invalid'
         ? 'Wrong password.'
       : res.status === 500 || res.error === 'server-config'
         ? 'The server is missing APP_PASSWORD or APP_SECRET. Set both and redeploy.'

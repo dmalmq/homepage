@@ -11,7 +11,7 @@ export const api = {
     });
     let body = null;
     try { body = await r.json(); } catch {}
-    return { ok: r.ok, status: r.status, error: body && body.error };
+    return { ok: r.ok, status: r.status, error: body && body.error, retryAfterSec: body && body.retryAfterSec };
   },
 
   async logout() {

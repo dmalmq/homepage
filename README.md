@@ -71,6 +71,21 @@ If login misbehaves, open `/api/health` first — it reports whether each env va
 and whether the database is reachable, without revealing any values. A missing
 `APP_SECRET` breaks sessions quietly rather than erroring.
 
+## Security
+
+One password on a public URL is the whole attack surface, so:
+
+- **Login is throttled per IP** — 8 failures in 15 minutes locks that address out for 15
+  minutes, and every failure costs a fixed delay. This is the one place login touches the
+  database, and it deliberately *fails open*: a database outage must not lock you out of
+  your own page. An attacker with many addresses still gets 8 tries each, so the real
+  protection is a long `APP_PASSWORD`.
+- **The password comparison hashes both sides first**, so it can't leak the password's
+  length through response timing.
+- **`/api/health` is deliberately unauthenticated** — you need it to diagnose a deploy you
+  can't log into. So it returns booleans only. The Node version and raw database errors
+  require a valid session; the password's length is never returned at all.
+
 ## Local dev
 
 ```bash

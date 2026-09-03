@@ -41,6 +41,14 @@ Don't add one.
   signing). Missing `APP_SECRET` silently breaks sessions rather than erroring loudly.
 - Single-user by design. Don't add multi-tenancy, user tables, or per-user scoping
   unless asked — the auth model assumes exactly one password holder.
+- **Login throttling** (`api/_lib/ratelimit.js`) is the only thing that couples login to
+  the database, and it fails open on purpose — a database outage must not lock the owner
+  out. Keep it that way. The decision logic is `nextAttemptState()`, kept pure so it can
+  be tested without a database.
+- **`/api/health` is intentionally reachable without a session**, because it exists to
+  diagnose a deployment you can't log into. Anything that would help an attacker — the
+  Node version, raw database errors — goes behind the cookie check; the password's length
+  is never returned. Don't widen the anonymous response.
 - **Adding a synced field:** add it to `DEFAULTS` in `public/js/store.js` and you're
   done. The sync whitelist is derived from `DEFAULTS`, and `api/state.js` stores the
   blob without inspecting it, so no server change is needed.
