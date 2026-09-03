@@ -108,9 +108,16 @@ a { color: inherit; text-decoration: none; }
    where the tabs and task line sit, so on a busy photo they wash out. */
 html[data-wallpaper] .scrim {
   background:
-    radial-gradient(42% 48% at 50% 50%, rgb(0 0 0 / 0.26) 0%, rgb(0 0 0 / 0.13) 55%, rgb(0 0 0 / 0) 100%),
+    radial-gradient(42% 46% at 50% 44%, rgb(0 0 0 / 0.34) 0%, rgb(0 0 0 / 0.17) 55%, rgb(0 0 0 / 0) 100%),
     radial-gradient(115% 85% at 50% 46%, rgb(0 0 0 / 0.22) 0%, rgb(0 0 0 / 0.50) 100%),
     linear-gradient(rgb(0 0 0 / 0.16), rgb(0 0 0 / 0.16));
+}
+
+/* The soft inks are tuned against a smooth gradient. Photo detail eats them, so
+   the quiet type (tabs, the intention line) gets a higher floor over a photo. */
+html[data-wallpaper] {
+  --ink-soft: rgb(255 255 255 / 0.86);
+  --ink-faint: rgb(255 255 255 / 0.62);
 }
 
 .wallpaper {
