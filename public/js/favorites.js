@@ -59,6 +59,10 @@ function renderFavorites() {
     a.className = 'fav';
     a.href = normalizeUrl(fav.url);
     a.title = fav.url;
+    // New tab for the same reason as search. noopener also stops the opened
+    // page reaching back through window.opener.
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
 
     const mark = document.createElement('span');
     mark.className = 'fav-mark';

@@ -33,7 +33,12 @@ export function mountSearch(root, { autofocus = true } = {}) {
     e.preventDefault();
     const q = input.value.trim();
     if (!q) return;
-    window.location.href = engine().url + encodeURIComponent(q);
+    // A new tab, so a running timer and any playing station survive the search.
+    // This is a user gesture, so popup blockers leave it alone.
+    window.open(engine().url + encodeURIComponent(q), '_blank', 'noopener');
+    // The page is still here afterwards, so clear the field rather than leaving
+    // the last query sitting in it.
+    input.value = '';
   });
 
   if (autofocus) input.focus();
