@@ -76,7 +76,8 @@ function renderChips() {
   if (!chipsEl) return;
   chipsEl.innerHTML = '';
 
-  if (state.stations.length === 0) {
+  const stations = state.stations.filter(s => toEmbed(s.url));
+  if (stations.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'station-empty';
     empty.textContent = 'Add a Spotify or YouTube link in settings to play it here.';
@@ -84,7 +85,7 @@ function renderChips() {
     return;
   }
 
-  for (const station of state.stations) {
+  for (const station of stations) {
     const chip = document.createElement('button');
     chip.type = 'button';
     chip.className = 'station';
@@ -263,10 +264,12 @@ export function stop() {
 
 // ---------- Editor (rendered inside the settings dialog) ----------
 export function mountStationsEditor(root) {
+  let draft = null;
+
   const paint = () => {
     root.innerHTML = '';
 
-    state.stations.forEach((station) => {
+    const appendRow = (station, isDraft = false) => {
       const row = document.createElement('div');
       row.className = 'edit-row';
 
@@ -275,18 +278,34 @@ export function mountStationsEditor(root) {
       label.value = station.label || '';
       label.placeholder = 'Name';
       label.setAttribute('aria-label', 'Station name');
-      label.addEventListener('change', () => { station.label = label.value.trim(); commit(); });
+      label.addEventListener('change', () => {
+        station.label = label.value.trim();
+        if (!isDraft) commit();
+      });
 
       const url = document.createElement('input');
       url.type = 'text';
       url.value = station.url || '';
       url.placeholder = 'Spotify or YouTube link';
       url.setAttribute('aria-label', 'Station link');
+      url.setAttribute('aria-invalid', String(Boolean(station.url) && !toEmbed(station.url)));
       url.addEventListener('change', () => {
-        station.url = url.value.trim();
-        station.kind = toEmbed(station.url)?.kind || '';
-        row.classList.toggle('is-invalid', Boolean(station.url) && !station.kind);
-        commit();
+        const next = url.value.trim();
+        const embed = toEmbed(next);
+        row.classList.toggle('is-invalid', Boolean(next) && !embed);
+        url.setAttribute('aria-invalid', String(Boolean(next) && !embed));
+        if (next && !embed) return;
+        station.url = next;
+        station.kind = embed?.kind || '';
+        if (isDraft) {
+          if (!embed) return;
+          state.stations.push(station);
+          draft = null;
+          commit();
+          paint();
+        } else {
+          commit();
+        }
       });
       row.classList.toggle('is-invalid', Boolean(station.url) && !toEmbed(station.url));
 
@@ -297,26 +316,34 @@ export function mountStationsEditor(root) {
       remove.title = 'Remove';
       remove.setAttribute('aria-label', `Remove ${station.label || station.url}`);
       remove.addEventListener('click', () => {
-        if (station.id === playingId) stop();
-        state.stations = state.stations.filter(s => s.id !== station.id);
-        commit();
+        if (isDraft) draft = null;
+        else {
+          if (station.id === playingId) stop();
+          state.stations = state.stations.filter(s => s.id !== station.id);
+          commit();
+        }
         paint();
       });
 
       row.append(label, url, remove);
       root.append(row);
-    });
+    };
 
-    const add = document.createElement('button');
-    add.type = 'button';
-    add.className = 'edit-add';
-    add.textContent = 'Add a station';
-    add.addEventListener('click', () => {
-      state.stations.push({ id: uid(), label: '', url: '', kind: '' });
-      commit();
-      paint();
-    });
-    root.append(add);
+    state.stations.forEach((station) => appendRow(station));
+    if (draft) appendRow(draft, true);
+
+    if (!draft) {
+      const add = document.createElement('button');
+      add.type = 'button';
+      add.className = 'edit-add';
+      add.textContent = 'Add a station';
+      add.addEventListener('click', () => {
+        draft = { id: uid(), label: '', url: '', kind: '' };
+        paint();
+        root.querySelector('.edit-row:last-of-type input')?.focus();
+      });
+      root.append(add);
+    }
   };
 
   paint();

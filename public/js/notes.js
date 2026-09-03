@@ -7,24 +7,15 @@ export function mountNotes(root) {
   root.innerHTML = `
     <textarea class="notes-area" spellcheck="false"
               placeholder="Anything you don't want to hold in your head"
-              aria-label="Notes"></textarea>
-    <span class="notes-status" role="status"></span>`;
+              aria-label="Notes"></textarea>`;
 
   const area = root.querySelector('.notes-area');
-  const status = root.querySelector('.notes-status');
-  let debounce = null;
 
   area.value = state.notes || '';
 
   area.addEventListener('input', () => {
-    status.textContent = 'Saving';
-    clearTimeout(debounce);
-    debounce = setTimeout(() => {
-      state.notes = area.value;
-      save();
-      status.textContent = 'Saved';
-      setTimeout(() => { status.textContent = ''; }, 1500);
-    }, 500);
+    state.notes = area.value;
+    save();
   });
 
   // Only adopt a remote edit when the field isn't being typed into.

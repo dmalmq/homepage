@@ -5,7 +5,7 @@
 // A folder handle can't live in the synced blob — it's a capability of this
 // Chrome profile — so it sits in IndexedDB. The mode and a remote URL do sync.
 
-import { state, commit } from './store.js';
+import { state, commit, subscribe } from './store.js';
 
 export const WALLPAPER_MODES = [
   { id: 'mesh',   name: 'Colour field' },
@@ -37,6 +37,13 @@ let objectUrl = null;
 let slideTimer = null;
 let files = [];
 let status = { text: '', folder: '' };
+let generation = 0;
+let wallpaperSignature = '';
+
+function signature() {
+  const w = state.wallpaper || {};
+  return `${w.mode || 'mesh'}|${w.url || ''}|${w.interval ?? 5}`;
+}
 
 export function wallpaperStatus() { return status; }
 export function canPickFolder() { return typeof window.showDirectoryPicker === 'function'; }
@@ -44,10 +51,18 @@ export function canPickFolder() { return typeof window.showDirectoryPicker === '
 export function mountWallpaper(node) {
   root = node;
   layers = [...node.querySelectorAll('.wallpaper-layer')];
+  wallpaperSignature = signature();
   applyWallpaper();
+  subscribe(() => {
+    const next = signature();
+    if (next === wallpaperSignature) return;
+    wallpaperSignature = next;
+    applyWallpaper();
+  });
 }
 
 export async function applyWallpaper() {
+  const run = ++generation;
   stopSlides();
   const mode = state.wallpaper?.mode || 'mesh';
 
@@ -59,6 +74,7 @@ export async function applyWallpaper() {
 
   if (mode === 'image') {
     const local = await idbGet(KEY_FILE);
+    if (run !== generation) return;
     if (local instanceof Blob) {
       showBlob(local);
       setStatus('Using a picture from this computer.');
@@ -66,8 +82,9 @@ export async function applyWallpaper() {
     }
     const url = String(state.wallpaper?.url || '').trim();
     if (url && /^https?:\/\//i.test(url)) {
-      await showRemote(url);
-      setStatus('Using the picture at that address.');
+      const shown = await showRemote(url, run);
+      if (run !== generation) return;
+      if (shown) setStatus('Using the picture at that address.');
       return;
     }
     showPaper(false);
@@ -82,18 +99,28 @@ export async function applyWallpaper() {
       return;
     }
     const handle = await idbGet(KEY_DIR);
+    if (run !== generation) return;
     if (!handle) {
       showPaper(false);
       setStatus('No folder chosen yet.');
       return;
     }
     const ok = await ensurePermission(handle);
+    if (run !== generation) return;
     if (!ok) {
       showPaper(false);
       setStatus('Chrome needs permission to read that folder. Choose it again.');
       return;
     }
-    files = await listImages(handle);
+    try {
+      files = await listImages(handle);
+    } catch {
+      if (run !== generation) return;
+      showPaper(false);
+      setStatus('Could not read that folder. Choose it again.');
+      return;
+    }
+    if (run !== generation) return;
     status.folder = handle.name || '';
     if (files.length === 0) {
       showPaper(false);
@@ -105,7 +132,8 @@ export async function applyWallpaper() {
         ? `Using “${status.folder}”.`
         : `${files.length} pictures in “${status.folder}”.`,
     );
-    await showFolderIndex(nextIndex(files.length, { advance: true }));
+    await showFolderIndex(nextIndex(files.length, { advance: true }), run);
+    if (run !== generation) return;
     startSlides();
   }
 }
@@ -176,10 +204,11 @@ function stopSlides() {
   slideTimer = null;
 }
 
-async function showFolderIndex(i) {
+async function showFolderIndex(i, run = generation) {
   const entry = files[i];
   if (!entry) return;
   const file = await entry.getFile();
+  if (run !== generation) return;
   showBlob(file);
 }
 
@@ -201,14 +230,19 @@ function showBlob(blob) {
   objectUrl = url;
 }
 
-function showRemote(url) {
+function showRemote(url, run) {
   return new Promise((resolve) => {
     const img = new Image();
-    img.onload = () => { paintLayer(url); resolve(); };
+    img.onload = () => {
+      if (run === generation) paintLayer(url);
+      resolve(true);
+    };
     img.onerror = () => {
-      showPaper(false);
-      setStatus('Could not load that picture.');
-      resolve();
+      if (run === generation) {
+        showPaper(false);
+        setStatus('Could not load that picture.');
+      }
+      resolve(false);
     };
     img.src = url;
   });
@@ -247,14 +281,18 @@ async function listImages(dir) {
 }
 
 async function ensurePermission(handle) {
-  const opts = { mode: 'read' };
-  if (!handle.queryPermission) return true;
-  let perm = await handle.queryPermission(opts);
-  if (perm === 'granted') return true;
-  if (perm === 'prompt' && handle.requestPermission) {
-    perm = await handle.requestPermission(opts);
+  try {
+    const opts = { mode: 'read' };
+    if (!handle.queryPermission) return true;
+    let perm = await handle.queryPermission(opts);
+    if (perm === 'granted') return true;
+    if (perm === 'prompt' && handle.requestPermission) {
+      perm = await handle.requestPermission(opts);
+    }
+    return perm === 'granted';
+  } catch {
+    return false;
   }
-  return perm === 'granted';
 }
 
 function idb() {

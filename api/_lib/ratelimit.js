@@ -15,8 +15,6 @@
 
 import { sql, ensureSchema } from './db.js';
 
-const WINDOW_MS = 15 * 60 * 1000;
-const LOCKOUT_MS = 15 * 60 * 1000;
 const MAX_FAILS = 8;
 
 /** Client address. Behind Cloudflare → Vercel the original client is the first
@@ -30,67 +28,58 @@ export function clientIp(req) {
 }
 
 /** @returns {{ allowed: boolean, retryAfterSec?: number }} */
-export async function checkLoginAllowed(ip) {
+export async function reserveLoginAttempt(ip) {
   try {
     await ensureSchema();
-    const { rows } = await sql`SELECT locked_until FROM login_attempts WHERE ip = ${ip}`;
-    const lockedUntil = rows[0] && rows[0].locked_until;
-    if (lockedUntil) {
-      const remainingMs = new Date(lockedUntil).getTime() - Date.now();
-      if (remainingMs > 0) {
-        return { allowed: false, retryAfterSec: Math.ceil(remainingMs / 1000) };
-      }
+    // The row update itself is the gate. PostgreSQL serializes concurrent
+    // conflicts on the same IP, so a burst cannot make many requests observe
+    // and overwrite the same failure count.
+    const { rows } = await sql`
+      INSERT INTO login_attempts (ip, fails, window_start, locked_until)
+      VALUES (${ip}, 1, now(), NULL)
+      ON CONFLICT (ip) DO UPDATE SET
+        fails = CASE
+          WHEN login_attempts.locked_until IS NOT NULL
+            AND login_attempts.locked_until <= now() THEN 1
+          WHEN login_attempts.window_start < now() - INTERVAL '15 minutes' THEN 1
+          ELSE LEAST(login_attempts.fails + 1, 2147483647)
+        END,
+        window_start = CASE
+          WHEN login_attempts.locked_until IS NOT NULL
+            AND login_attempts.locked_until <= now() THEN now()
+          WHEN login_attempts.window_start < now() - INTERVAL '15 minutes' THEN now()
+          ELSE login_attempts.window_start
+        END,
+        locked_until = CASE
+          WHEN login_attempts.locked_until IS NOT NULL
+            AND login_attempts.locked_until > now() THEN login_attempts.locked_until
+          WHEN login_attempts.locked_until IS NOT NULL
+            AND login_attempts.locked_until <= now() THEN NULL
+          WHEN login_attempts.window_start < now() - INTERVAL '15 minutes' THEN NULL
+          WHEN login_attempts.fails + 1 >= ${MAX_FAILS}
+            THEN now() + INTERVAL '15 minutes'
+          ELSE NULL
+        END
+      RETURNING fails, locked_until
+    `;
+    const row = rows[0];
+    try {
+      await sql`
+        DELETE FROM login_attempts
+        WHERE ip <> ${ip}
+          AND window_start < now() - INTERVAL '1 day'
+          AND (locked_until IS NULL OR locked_until < now())
+      `;
+    } catch (e) {
+      console.warn('could not clean up old login attempts', e);
     }
-    return { allowed: true };
+    const allowed = Number(row.fails) <= MAX_FAILS;
+    if (allowed) return { allowed: true };
+    const remainingMs = new Date(row.locked_until).getTime() - Date.now();
+    return { allowed: false, retryAfterSec: Math.max(1, Math.ceil(remainingMs / 1000)) };
   } catch (e) {
     console.warn('rate limit check unavailable, allowing attempt', e);
     return { allowed: true };
-  }
-}
-
-/**
- * The throttling decision, kept pure so it can be tested without a database.
- * @param row  existing { fails, window_start }, or null/undefined for a first failure
- * @param now  epoch ms
- * @returns {{ fails: number, windowExpired: boolean, lockedUntil: string|null }}
- */
-export function nextAttemptState(row, now = Date.now()) {
-  const windowExpired = !row
-    || (now - new Date(row.window_start).getTime()) > WINDOW_MS;
-  const fails = windowExpired ? 1 : Number(row.fails) + 1;
-  const lockedUntil = fails >= MAX_FAILS
-    ? new Date(now + LOCKOUT_MS).toISOString()
-    : null;
-  return { fails, windowExpired, lockedUntil };
-}
-
-export async function recordFailure(ip) {
-  try {
-    await ensureSchema();
-    const { rows } = await sql`SELECT fails, window_start FROM login_attempts WHERE ip = ${ip}`;
-    const { fails, windowExpired, lockedUntil } = nextAttemptState(rows[0]);
-
-    await sql`
-      INSERT INTO login_attempts (ip, fails, window_start, locked_until)
-      VALUES (${ip}, ${fails}, now(), ${lockedUntil})
-      ON CONFLICT (ip) DO UPDATE SET
-        fails        = ${fails},
-        window_start = CASE WHEN ${windowExpired} THEN now()
-                            ELSE login_attempts.window_start END,
-        locked_until = ${lockedUntil}
-    `;
-
-    // Opportunistic cleanup so the table can't grow without bound.
-    await sql`
-      DELETE FROM login_attempts
-      WHERE window_start < now() - INTERVAL '1 day'
-        AND (locked_until IS NULL OR locked_until < now())
-    `;
-
-    return { fails, locked: Boolean(lockedUntil) };
-  } catch (e) {
-    console.warn('could not record login failure', e);
-    return { fails: 0, locked: false };
   }
 }
 

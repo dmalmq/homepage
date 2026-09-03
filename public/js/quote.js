@@ -4,7 +4,7 @@
 // The choice is keyed to the date, so it's the same line all day rather than
 // changing on every tab — a quote that flickers is a quote you start ignoring.
 
-import { state } from './store.js';
+import { state, subscribe } from './store.js';
 
 const QUOTES = [
   'It always seems impossible until it’s done',
@@ -35,5 +35,6 @@ export function mountQuote(el) {
     if (show) el.textContent = `“${quoteForToday()}”`;
   };
   paint();
+  subscribe(paint);
   return paint;
 }

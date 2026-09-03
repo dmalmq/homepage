@@ -1,4 +1,4 @@
-import { state } from './store.js';
+import { state, subscribe } from './store.js';
 
 export const ENGINES = [
   { id: 'duckduckgo', name: 'DuckDuckGo', url: 'https://duckduckgo.com/?q=' },
@@ -87,6 +87,7 @@ export function mountSearch(root, { autofocus = true } = {}) {
   paint();
 
   input.addEventListener('input', paint);
+  subscribe(paint);
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();

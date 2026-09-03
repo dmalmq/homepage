@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "description": "Personal browser start page with cross-device sync.",
+  "scripts": {
+    "test": "node --test",
+    "check": "for f in public/js/*.js api/*.js api/_lib/*.js; do node --check \"$f\" || exit 1; done"
+  },
   "dependencies": {
     "@vercel/postgres": "^0.10.0"
   },

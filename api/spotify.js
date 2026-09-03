@@ -75,9 +75,9 @@ function popupClose(res, status) {
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   return res.status(200).send(
     `<!doctype html><meta charset="utf-8"><title>Spotify</title>` +
-    `<body style="background:#160f2b;color:#fff;font:14px system-ui;padding:24px">` +
+    `<body data-spotify-status="${status}" style="background:#160f2b;color:#fff;font:14px system-ui;padding:24px">` +
     `<p>${status === 'ok' ? 'Connected. You can close this window.' : 'Spotify connection failed.'}</p>` +
-    `<script>try{window.opener&&window.opener.postMessage({spotify:${JSON.stringify(status)}},location.origin)}catch(e){}window.close()</script>`
+    `<script src="/js/spotify-callback.js"></script>`
   );
 }
 

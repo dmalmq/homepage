@@ -69,7 +69,9 @@ function renderWeek() {
     const day = new Date(start);
     day.setDate(day.getDate() - i);
     const from = day.getTime();
-    const to = from + 86_400_000;
+    const nextDay = new Date(day);
+    nextDay.setDate(nextDay.getDate() + 1);
+    const to = nextDay.getTime();
     const hits = (state.sessions || []).filter(s => s.t >= from && s.t < to);
     const mins = hits.reduce((sum, s) => sum + (Number(s.minutes) || 0), 0);
 

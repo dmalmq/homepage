@@ -56,12 +56,20 @@ export function setMode(mode, { resetTime = true } = {}) {
 
 export function start() {
   if (timer.running) return pause();
+  prepareSound();
   if (timer.remaining <= 0) reset();
   timer.running = true;
   endTime = Date.now() + timer.remaining * 1000;
   handle = setInterval(tick, 250);
   tick();
   emitTick();
+}
+
+/** Create/resume Web Audio inside the click or key gesture that starts a timer,
+ *  rather than waiting until the alarm fires outside user activation. */
+export function prepareSound() {
+  if (state.sound === 'none') return;
+  try { ctx(); } catch { /* Sound remains a non-fatal enhancement. */ }
 }
 
 export function pause() {
@@ -86,6 +94,11 @@ function tick() {
   updateTitle();
   emitTick();
   if (timer.remaining <= 0) complete();
+}
+
+/** Correct an absolute-time timer immediately after sleep/backgrounding. */
+export function reconcileTimer() {
+  if (timer.running) tick();
 }
 
 function complete() {

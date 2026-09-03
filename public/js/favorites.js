@@ -20,6 +20,15 @@ export function hostOf(url) {
   catch { return ''; }
 }
 
+export function isSafeFavorite(fav) {
+  try {
+    const url = new URL(normalizeUrl(fav && fav.url));
+    return (url.protocol === 'http:' || url.protocol === 'https:') && Boolean(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
 // Prefer the capitals people already read a name by — GitHub reads as GH, not
 // GI; Hacker News as HN. Fall back to initials, then to the first two letters.
 function monogram(fav) {
@@ -46,7 +55,8 @@ function renderFavorites() {
   if (!gridEl) return;
   gridEl.innerHTML = '';
 
-  if (state.favorites.length === 0) {
+  const favorites = state.favorites.filter(isSafeFavorite);
+  if (favorites.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'fav-empty';
     empty.textContent = 'No sites saved yet. Add them in settings.';
@@ -54,7 +64,7 @@ function renderFavorites() {
     return;
   }
 
-  state.favorites.forEach((fav, i) => {
+  favorites.forEach((fav, i) => {
     const a = document.createElement('a');
     a.className = 'fav';
     a.href = normalizeUrl(fav.url);
@@ -89,34 +99,58 @@ function renderFavorites() {
 
 /** Open the favorite at a 0-based index. Used by the 1–8 shortcuts. */
 export function openFavorite(index) {
-  const fav = state.favorites[index];
-  if (!fav || !fav.url) return false;
+  const fav = state.favorites.filter(isSafeFavorite)[index];
+  if (!fav) return false;
   window.open(normalizeUrl(fav.url), '_blank', 'noopener');
   return true;
 }
 
 // ---------- Editor (rendered inside the settings dialog) ----------
 export function mountFavoritesEditor(root) {
+  let draft = null;
+
   const paint = () => {
     root.innerHTML = '';
 
-    state.favorites.forEach((fav) => {
+    const appendRow = (fav, isDraft = false) => {
       const row = document.createElement('div');
       row.className = 'edit-row';
+      row.classList.toggle('is-invalid', Boolean(fav.url) && !isSafeFavorite(fav));
 
       const label = document.createElement('input');
       label.type = 'text';
       label.value = fav.label || '';
       label.placeholder = 'Name';
       label.setAttribute('aria-label', 'Site name');
-      label.addEventListener('change', () => { fav.label = label.value.trim(); commit(); });
+      label.addEventListener('change', () => {
+        fav.label = label.value.trim();
+        if (!isDraft) commit();
+      });
 
       const url = document.createElement('input');
       url.type = 'text';
       url.value = fav.url || '';
       url.placeholder = 'example.com';
       url.setAttribute('aria-label', 'Site address');
-      url.addEventListener('change', () => { fav.url = url.value.trim(); commit(); });
+      url.setAttribute('aria-invalid', String(Boolean(fav.url) && !isSafeFavorite(fav)));
+      url.addEventListener('change', () => {
+        const next = url.value.trim();
+        const candidate = { ...fav, url: next };
+        const valid = !next || isSafeFavorite(candidate);
+        row.classList.toggle('is-invalid', !valid);
+        url.setAttribute('aria-invalid', String(!valid));
+        if (!valid) return;
+        fav.url = next;
+        if (isDraft) {
+          if (!next) return;
+          state.favorites.push(fav);
+          draft = null;
+          commit();
+          paint();
+        } else {
+          commit();
+        }
+      });
 
       const remove = document.createElement('button');
       remove.type = 'button';
@@ -125,26 +159,31 @@ export function mountFavoritesEditor(root) {
       remove.title = 'Remove';
       remove.setAttribute('aria-label', `Remove ${fav.label || fav.url}`);
       remove.addEventListener('click', () => {
-        state.favorites = state.favorites.filter(f => f.id !== fav.id);
-        commit();
+        if (isDraft) draft = null;
+        else {
+          state.favorites = state.favorites.filter(f => f.id !== fav.id);
+          commit();
+        }
         paint();
       });
 
       row.append(label, url, remove);
       root.append(row);
-    });
+      return label;
+    };
 
-    if (state.favorites.length < MAX_FAVORITES) {
+    state.favorites.forEach((fav) => appendRow(fav));
+    if (draft) appendRow(draft, true);
+
+    if (state.favorites.length + (draft ? 1 : 0) < MAX_FAVORITES) {
       const add = document.createElement('button');
       add.type = 'button';
       add.className = 'edit-add';
       add.textContent = 'Add a site';
       add.addEventListener('click', () => {
-        state.favorites.push({ id: uid(), label: '', url: '' });
-        commit();
+        draft = { id: uid(), label: '', url: '' };
         paint();
-        const inputs = root.querySelectorAll('.edit-row input');
-        if (inputs.length) inputs[inputs.length - 2].focus();
+        root.querySelector('.edit-row:last-of-type input')?.focus();
       });
       root.append(add);
     }

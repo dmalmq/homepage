@@ -20,7 +20,10 @@ of your day above everything else.
 The background is a CSS gradient mesh that shifts with the hour: dawn, day, dusk,
 night. You can pin it to one phase in settings.
 
-Everything except the running timer syncs across devices.
+Everything except the running timer syncs across devices. Changes are also cached
+immediately in this browser, so closing a tab before the network write finishes does
+not discard them. The cache is plain local browser storage; use a trusted browser
+profile for notes or tasks you consider sensitive.
 
 ## Two things worth knowing
 
@@ -67,7 +70,7 @@ migration you have to run.
 
 If login misbehaves, open `/api/health` first — it reports whether each env var is set
 and whether the database is reachable, without revealing any values. A missing
-`APP_SECRET` breaks sessions quietly rather than erroring.
+`APP_SECRET` makes login return a configuration error and invalidates session cookies.
 
 ## Security
 
@@ -80,6 +83,8 @@ One password on a public URL is the whole attack surface, so:
   protection is a long `APP_PASSWORD`.
 - **The password comparison hashes both sides first**, so it can't leak the password's
   length through response timing.
+- **`APP_SECRET` has no production fallback.** If it is absent, existing cookies are
+  rejected and login fails closed rather than signing sessions with a known key.
 - **`/api/health` is deliberately unauthenticated** — you need it to diagnose a deploy you
   can't log into. So it returns booleans only. The Node version and raw database errors
   require a valid session; the password's length is never returned at all.
@@ -90,6 +95,8 @@ One password on a public URL is the whole attack surface, so:
 npm install
 vercel env pull        # downloads DB + env vars into .env.local
 vercel dev
+npm test               # Node's built-in test runner
+npm run check          # syntax-check every frontend and API module
 ```
 
 ## State
@@ -116,9 +123,11 @@ One JSONB row holds everything:
 }
 ```
 
-Last-write-wins on `updatedAt`. The client pulls on load, on focus, and every 60s, and
-pushes debounced writes. `sessions` is pruned to the last 7 days on load. The running
-timer is per-device and deliberately not synced.
+Last-write-wins on `updatedAt`. The client snapshots changes to local storage
+immediately, pushes debounced writes, and pulls on load, focus, and every 60s. A pull
+never replaces a pending local write; failed writes retry with backoff. `sessions` is
+pruned to the last 7 days on load. The running timer is per-device and deliberately
+not synced.
 
 Adding a field means adding it to `DEFAULTS` in `public/js/store.js` — the sync
 whitelist is derived from that object, so nothing else needs touching. `api/state.js`

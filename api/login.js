@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { signToken, makeCookieHeader, COOKIE_NAME, parseCookies, verifyToken } from './_lib/auth.js';
-import { clientIp, checkLoginAllowed, recordFailure, clearFailures } from './_lib/ratelimit.js';
+import { clientIp, reserveLoginAttempt, clearFailures } from './_lib/ratelimit.js';
 
 function json(req, fallback = {}) {
   if (req.body && typeof req.body === 'object') return req.body;
@@ -20,6 +20,7 @@ function matches(candidate, expected) {
 }
 
 export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'method' });
@@ -29,18 +30,19 @@ export default async function handler(req, res) {
   if (!password) return res.status(400).json({ error: 'missing' });
 
   const expected = process.env.APP_PASSWORD;
-  if (!expected) return res.status(500).json({ error: 'server-config' });
+  if (!expected || !process.env.APP_SECRET) {
+    return res.status(500).json({ error: 'server-config' });
+  }
 
   const ip = clientIp(req);
 
-  const gate = await checkLoginAllowed(ip);
+  const gate = await reserveLoginAttempt(ip);
   if (!gate.allowed) {
     res.setHeader('Retry-After', String(gate.retryAfterSec));
     return res.status(429).json({ error: 'too-many', retryAfterSec: gate.retryAfterSec });
   }
 
   if (!matches(password, expected)) {
-    await recordFailure(ip);
     // Blunt the guess rate even before the lockout threshold is reached.
     await new Promise(resolve => setTimeout(resolve, 400));
     return res.status(401).json({ error: 'invalid' });

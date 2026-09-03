@@ -1,4 +1,4 @@
-import { state, commit } from './store.js';
+import { state, commit, subscribe } from './store.js';
 import { SOUNDS, playSound, syncToDurations } from './pomodoro.js';
 import { ENGINES, BANGS } from './search.js';
 import { mountFavoritesEditor } from './favorites.js';
@@ -27,6 +27,7 @@ function clamp(value, lo, hi, fallback) {
 
 export function mountSettings({ onSearchChange = () => {}, onQuoteChange = () => {}, onLogout = () => {} } = {}) {
   const dialog = $('settings');
+  let repaintPending = false;
 
   fillOptions($('sound-select'), SOUNDS.map(s => [s.id, s.name]));
   fillOptions($('engine-select'), ENGINES.map(e => [e.id, e.name]));
@@ -38,7 +39,11 @@ export function mountSettings({ onSearchChange = () => {}, onQuoteChange = () =>
     if (folderOpt) folderOpt.disabled = true;
   }
 
-  $('settings-open').addEventListener('click', () => { paint(); dialog.showModal(); });
+  $('settings-open').addEventListener('click', () => {
+    paint();
+    dialog.showModal();
+    paintSpotify();
+  });
   dialog.addEventListener('pointerdown', (e) => {
     const box = dialog.getBoundingClientRect();
     const outside = e.clientX < box.left || e.clientX > box.right
@@ -251,10 +256,23 @@ export function mountSettings({ onSearchChange = () => {}, onQuoteChange = () =>
     paintWeatherNote();
     mountFavoritesEditor($('favorites-editor'));
     mountStationsEditor($('stations-editor'));
-    paintSpotify();
   }
 
   paint();
+  subscribe(() => {
+    if (!dialog.open) return;
+    const focused = dialog.contains(document.activeElement) ? document.activeElement : null;
+    if (!focused) {
+      paint();
+      return;
+    }
+    if (repaintPending) return;
+    repaintPending = true;
+    focused.addEventListener('blur', () => {
+      repaintPending = false;
+      if (dialog.open) paint();
+    }, { once: true });
+  });
 }
 
 function bindNumber(id, lo, hi, apply) {

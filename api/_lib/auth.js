@@ -1,13 +1,18 @@
 import crypto from 'node:crypto';
 
-const SECRET = process.env.APP_SECRET || 'dev-insecure-secret';
-
 // OAuth state travels through another origin's servers and lands in the address
 // bar, browser history and access logs. It is signed with a key derived from
 // APP_SECRET rather than APP_SECRET itself, so a leaked state value can never be
 // replayed as a session cookie — verifyToken() authenticates any payload it can
 // verify, and has no idea what a payload was minted for.
-const STATE_KEY = crypto.createHmac('sha256', SECRET).update('spotify-oauth-state').digest();
+function secret() {
+  return process.env.APP_SECRET || null;
+}
+
+function stateKey() {
+  const key = secret();
+  return key ? crypto.createHmac('sha256', key).update('spotify-oauth-state').digest() : null;
+}
 
 export const COOKIE_NAME = 'pomo_auth';
 const MAX_AGE_SEC = 30 * 24 * 60 * 60; // 30 days
@@ -36,19 +41,25 @@ function verify(key, token) {
 }
 
 export function signToken(payload) {
-  return sign(SECRET, payload);
+  const key = secret();
+  if (!key) throw new Error('APP_SECRET is not configured');
+  return sign(key, payload);
 }
 
 export function verifyToken(token) {
-  return verify(SECRET, token);
+  const key = secret();
+  return key ? verify(key, token) : null;
 }
 
 export function signStateToken(payload) {
-  return sign(STATE_KEY, payload);
+  const key = stateKey();
+  if (!key) throw new Error('APP_SECRET is not configured');
+  return sign(key, payload);
 }
 
 export function verifyStateToken(token) {
-  return verify(STATE_KEY, token);
+  const key = stateKey();
+  return key ? verify(key, token) : null;
 }
 
 export function parseCookies(headerValue) {

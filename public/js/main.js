@@ -2,10 +2,13 @@
 // store drive re-renders from there.
 
 import { api } from './api.js';
-import { state, replaceState, render, pullState, subscribe, setUnauthedHandler, ensureDay } from './store.js';
+import {
+  state, initializeState, initializeCachedState, render, pullState, subscribe,
+  subscribeSync, syncStatus, retrySyncNow, setUnauthedHandler, ensureDay,
+} from './store.js';
 import { startThemeClock, applyTheme } from './theme.js';
 import { mountTimer } from './timer-panel.js';
-import { sessionsToday, timer, reset as resetTimer } from './pomodoro.js';
+import { sessionsToday, timer, reset as resetTimer, reconcileTimer } from './pomodoro.js';
 import { mountTasks } from './tasks.js';
 import { mountNotes } from './notes.js';
 import { mountFavorites } from './favorites.js';
@@ -138,6 +141,23 @@ function wireSessionCount() {
   setInterval(paint, 60_000);
 }
 
+function wireSyncStatus() {
+  const el = $('sync-status');
+  const labels = {
+    idle: '', saving: 'Saving', synced: '', offline: 'Offline', error: 'Sync failed',
+  };
+  const paint = () => {
+    const backup = syncStatus.backupAvailable ? '' : ' · local backup unavailable';
+    el.textContent = labels[syncStatus.phase] || '';
+    el.hidden = !el.textContent && !backup;
+    el.className = `sync-status sync-status--${syncStatus.phase}`;
+    el.title = `${el.textContent || 'Synced'}${backup}`;
+    el.setAttribute('aria-label', el.title);
+  };
+  paint();
+  subscribeSync(paint);
+}
+
 // ---------- Date ----------
 function mountDate(el) {
   const paint = () => {
@@ -167,6 +187,7 @@ function mountAll() {
   wireDock();
   wireCurrentTask();
   wireSessionCount();
+  wireSyncStatus();
   wireKeys({
     isApp: () => loginEl.hidden,
     isBlocked: () => !!document.querySelector('.settings[open]'),
@@ -185,7 +206,7 @@ function mountAll() {
 }
 
 function enterApp(remoteState) {
-  replaceState(remoteState || {});
+  initializeState(remoteState || {});
   applyTheme();
   // Seed the readout from the durations we just loaded. Guarded so a sync pull
   // can never yank a running timer back to the top.
@@ -209,7 +230,17 @@ $('login-form').addEventListener('submit', async (e) => {
   pwEl.value = '';
   if (!password) return;
 
-  const res = await api.login(password);
+  const submit = e.currentTarget.querySelector('[type="submit"]');
+  submit.disabled = true;
+  let res;
+  try {
+    res = await api.login(password);
+  } catch {
+    errEl.textContent = 'Could not reach the server. Check your connection and try again.';
+    submit.disabled = false;
+    return;
+  }
+  submit.disabled = false;
   if (!res.ok) {
     errEl.textContent =
       res.status === 429 || res.error === 'too-many'
@@ -240,14 +271,17 @@ $('login-form').addEventListener('submit', async (e) => {
 let lastFocus = Date.now();
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && loginEl.hidden) {
+    reconcileTimer();
     ensureDay();
     pullState();
   }
 });
 window.addEventListener('focus', () => {
+  reconcileTimer();
   if (loginEl.hidden && Date.now() - lastFocus > 5000) pullState();
   lastFocus = Date.now();
 });
+window.addEventListener('online', retrySyncNow);
 setInterval(() => {
   if (!loginEl.hidden) return;
   ensureDay();
@@ -261,6 +295,16 @@ setInterval(() => {
     if (!res.authed) return showLogin();
     enterApp(res.state);
   } catch {
-    showLogin();
+    if (initializeCachedState()) {
+      applyTheme();
+      if (!timer.running) resetTimer();
+      loginEl.hidden = true;
+      appEl.hidden = false;
+      if (!mounted) { mountAll(); mounted = true; }
+      else render();
+      if (searchApi) searchApi.focus();
+    } else {
+      showLogin();
+    }
   }
 })();
