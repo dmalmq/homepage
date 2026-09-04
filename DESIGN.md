@@ -149,7 +149,7 @@ Centre column is `min(720px, 100%)` (search + favorites); floating panel is fixe
 
 Search field and favorites share that column's two edges: the field fills it, and the tiles are equal grid tracks under it (`repeat(auto-fit, minmax(150px, 1fr))`, 8px gaps) so eight favorites read 1–4 above 5–8 in reading order. Centred wrapping sized each row by its own labels, which moved a tile whenever a name changed while its number stayed put.
 
-Responsive: ≤720px tightens padding, gaps, and readout; ≤480px stacks the right dock above the left (with panel and player rising to match) only while a sync state is visible — slim docks stay bottom-aligned; ≤380px always stacks; short viewports (≤780px, ≤620px height) shrink the readout and stack gaps, and ≤440px height returns the topbar to its own row. The favorites grid answers to its column rather than a breakpoint: four tracks at full width, three near 560px, two on phones. Touch (`hover: none`) keeps key hints visible instead of hover-revealed, and gives stacked menu rows their own height. No load entrance on `.stage` — a backwards-fill slide held the whole column 10px low and made the timer read off-centre.
+Responsive: ≤720px tightens padding, gaps, and readout; ≤480px stacks the right dock above the left (with panel and player rising to match) only while a sync state is visible — an error earns the extra row; ≤400px drops the session word so the two docks stay side by side at phone widths instead, and ≤340px takes the dock's own density step (4px gaps and padding, 10px insets) rather than adding a third stacked state; short viewports (≤780px, ≤620px height) shrink the readout and stack gaps, and ≤440px height returns the topbar to its own row. The favorites grid answers to its column rather than a breakpoint: four tracks at full width, three near 560px, two on phones. Touch (`hover: none`) keeps key hints visible instead of hover-revealed, and gives stacked menu rows their own height. No load entrance on `.stage` — a backwards-fill slide held the whole column 10px low and made the timer read off-centre.
 
 ## Elevation & Depth
 
@@ -201,6 +201,7 @@ Controls (buttons, modes, tabs, search field, docks, toggle rows) are fully roun
 ### Navigation
 - **Style:** two fixed bottom glass pills (docks), 6px padding/gaps, 34px round icon buttons in quiet-white.
 - **States:** hover washes to 14% white and lifts; active (open panel) fills near-white with Inverted Ink. The count chip is a 13px 600 pill variant of the same treatment.
+- **Count chip:** reads "3 sessions" where there is room and "3p" below 400px, borrowing the estimate badge's unit so a narrow dock shows a measured quantity rather than a stray digit. The number leads; the unit sits at 60%. Its label always carries the full count — the name was static, so the number was never spoken.
 
 ### Interaction & Recovery
 - **The Inline Undo Rule.** Deleting a task removes it immediately but leaves an inline “Task deleted. Undo” row in the same list for 8 seconds, restoring the original position and current-task selection.

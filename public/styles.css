@@ -597,6 +597,8 @@ html[data-wallpaper] {
 .dock-btn.is-active { color: var(--ink-invert); background: rgb(255 255 255 / 0.92); }
 
 .dock-count {
+  display: inline-flex;
+  align-items: center;
   font: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -610,6 +612,8 @@ html[data-wallpaper] {
   height: 34px;
 }
 .dock-count:hover { color: var(--ink); background: rgb(255 255 255 / 0.14); }
+.dock-count-word { margin-left: 4px; }
+.dock-count-unit { display: none; opacity: 0.6; }
 .dock-count.is-active { color: var(--ink-invert); background: rgb(255 255 255 / 0.92); }
 
 .sync-status {
@@ -1583,11 +1587,23 @@ html[data-wallpaper] {
   body:has(#sync-status:not([hidden])) .player { bottom: 122px; }
   .sync-status { max-width: 68px; overflow: hidden; text-overflow: ellipsis; }
 }
-@media (max-width: 380px) {
-  .dock--right { bottom: 70px; }
-  .panel,
-  .panel--right { bottom: 122px; }
-  .player { bottom: 122px; }
+/* Below ~390px the two docks want 373px of a 360px screen, so the right one
+   used to stack above the left and read as a stranded island. The count chip
+   is 83px of that for one word, so the word goes and the number stays: the
+   pair then fits side by side with room to spare, which is where they belong.
+   The label keeps the full count. */
+@media (max-width: 400px) {
+  .dock-count-word { display: none; }
+  .dock-count-unit { display: inline; }
+  .dock-count { padding: 0 10px; }
+}
+/* At 320px the slim pair still closes to a 2px gap, so the docks take the same
+   density step the page takes at 720px rather than earning a third stacked
+   state. One row at every width beats a cliff at one of them. */
+@media (max-width: 340px) {
+  .dock { gap: 4px; padding: 4px; }
+  .dock--left { left: 10px; }
+  .dock--right { right: 10px; }
 }
 
 /* Short windows shrink the timer rather than dropping search and favorites.

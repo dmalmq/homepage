@@ -177,7 +177,25 @@ function wireSessionCount() {
   const el = $('session-count');
   const paint = () => {
     const n = sessionsToday().length;
-    el.textContent = n === 1 ? '1 session' : `${n} sessions`;
+    const word = n === 1 ? 'session' : 'sessions';
+    // Number and word are separate elements so a narrow dock can drop the word
+    // in CSS and still sit beside the panel dock. The label carries the count
+    // either way — the name was a static "Today's focus", so a screen reader
+    // never heard the number even when it was on screen.
+    const num = document.createElement('span');
+    num.className = 'dock-count-n';
+    num.textContent = String(n);
+    // The narrow dock swaps the word for the "p" the task estimates already
+    // use, so the chip stays a measured quantity rather than a stray digit.
+    const unit = document.createElement('span');
+    unit.className = 'dock-count-unit';
+    unit.textContent = 'p';
+    const full = document.createElement('span');
+    full.className = 'dock-count-word';
+    full.textContent = word;
+    el.replaceChildren(num, unit, full);
+    el.setAttribute('aria-label', `Today\u2019s focus \u2014 ${n} ${word}`);
+    el.title = el.getAttribute('aria-label');
   };
   paint();
   subscribe(paint);
