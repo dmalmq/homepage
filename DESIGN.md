@@ -145,9 +145,11 @@ Each phase is a ground plus four saturated blobs; geometry shared, cross-faded o
 
 Single-viewport shell, no scroll: `.app` is a 100%-height grid (26px 30px padding; 18px on ≤720px) with topbar and stage overlaid in the same cell so the timer sits at the true viewport centre. The stage is three rows — chrome above, readout, chrome below — with equal 1fr tracks pinning the timer to centre.
 
-Centre column is `min(560px, 100%)` (search + favorites); floating panel is fixed bottom-left `min(360px, 100vw − 44px)`, max-height `min(60vh, 520px)`. Docks are fixed bottom pills (22px insets). Topbar spreads date/weather left, clock right, with a quiet segmented tab row centred in the empty band between. Rhythm is 2/6/10/14/18/24px gaps — 6px inside pills, 14–18px between stage rows, 24px across the topbar.
+Centre column is `min(720px, 100%)` (search + favorites); floating panel is fixed bottom-left `min(360px, 100vw − 44px)`, max-height `min(60vh, 520px)`. Docks are fixed bottom pills (22px insets). Topbar spreads date/weather left, clock right, with a quiet segmented tab row centred in the empty band between. Rhythm is 2/6/10/14/18/24px gaps — 6px inside pills, 14–18px between stage rows, 24px across the topbar.
 
-Responsive: ≤720px tightens padding, gaps, and readout; ≤480px stacks the right dock above the left (with panel and player rising to match) only while a sync state is visible — slim docks stay bottom-aligned; ≤380px always stacks; short viewports (≤780px, ≤620px height) shrink the readout and stack gaps, and ≤440px height returns the topbar to its own row. Touch (`hover: none`) keeps key hints visible instead of hover-revealed. No load entrance on `.stage` — a backwards-fill slide held the whole column 10px low and made the timer read off-centre.
+Search field and favorites share that column's two edges: the field fills it, and the tiles are equal grid tracks under it (`repeat(auto-fit, minmax(150px, 1fr))`, 8px gaps) so eight favorites read 1–4 above 5–8 in reading order. Centred wrapping sized each row by its own labels, which moved a tile whenever a name changed while its number stayed put.
+
+Responsive: ≤720px tightens padding, gaps, and readout; ≤480px stacks the right dock above the left (with panel and player rising to match) only while a sync state is visible — slim docks stay bottom-aligned; ≤380px always stacks; short viewports (≤780px, ≤620px height) shrink the readout and stack gaps, and ≤440px height returns the topbar to its own row. The favorites grid answers to its column rather than a breakpoint: four tracks at full width, three near 560px, two on phones. Touch (`hover: none`) keeps key hints visible instead of hover-revealed, and gives stacked menu rows their own height. No load entrance on `.stage` — a backwards-fill slide held the whole column 10px low and made the timer read off-centre.
 
 ## Elevation & Depth
 
@@ -189,7 +191,7 @@ Controls (buttons, modes, tabs, search field, docks, toggle rows) are fully roun
 - **Background:** one deep-violet ladder — rgb(18 12 34) at 0.72 (panel), 0.80 (player), 0.86 (keys), 0.94 (settings, suggestions), 0.96 (sticky settings head, task-menu) — always with 22px blur. Opacity, never hue, separates the layers.
 - **Shadow Strategy:** floating-panel shadow; see Elevation.
 - **Border:** 1px glass-line.
-- **Internal Padding:** 6px for suggestion lists, 8px player, 14px 16px panel heads.
+- **Internal Padding:** 6px for suggestion lists and the row menu, 8px player, 14px 16px panel heads. 6px is the floor for a list of focusable rows: a 3px-offset ring on a 2px outline reaches 5px, and anything tighter draws focus across the card's own border.
 
 ### Inputs / Fields
 - **Style:** pill search field in glass with 1px glass-line, 12px 18–20px padding; settings fields are 8px rects (36px tall) on 12% white darkening to 38% black on focus.
@@ -205,15 +207,27 @@ Controls (buttons, modes, tabs, search field, docks, toggle rows) are fully roun
 - **The Named Recovery Rule.** Sync failures name the problem and put a Retry action beside it; a retry in progress says “Saved locally · retrying” (on compact phones the action shortens to “Retrying”).
 - **The Visible Help Rule.** Keyboard shortcuts stay available from a visible `?` button in the left dock as well as the `?` key.
 - **The Local Timer Rule.** The running timer is deliberately per-device and says “Runs on this device” in its panel, so cross-device state does not imply timer sync.
-- **The Pseudo-Target Rule.** Compact controls keep their drawn size but expose an invisible 44px × 44px pseudo-element target, positioned from the control centre without affecting layout.
+- **The Pseudo-Target Rule.** Compact controls keep their drawn size but expose an invisible 44px × 44px pseudo-element target, positioned from the control centre without affecting layout. Stacked rows are the exception — overlapping pseudo-targets would fight — so a list of menu rows carries the comfortable height itself on touch.
 
 ### Jump tiles
-- **Style:** pill tiles in white-0.10 wash with a transparent border (10px 18px padding, 600 14px monogram + label + key hint). Letterforms distinguish tiles; no decorative colour.
+- **Style:** pill tiles in white-0.10 wash with a transparent border (10px 14px padding, 6px gaps, 600 14px monogram + label + key hint). Letterforms distinguish tiles; no decorative colour.
+- **Width:** each tile fills its grid track so the set is one width, capped at 200px and centred in the track, which keeps a list of one or two from stretching into banners. An auto width or an auto margin falls back to fit-content and loses the shared edges.
+- **Key hint:** pushed to the tile's own right edge, so against equal tracks the eight numbers read as columns rather than trailing each label at a different offset.
 - **State:** hover deepens to white-0.20 and lifts 3px with the fav-lift shadow. The add tile is the lone dashed border on the page.
+
+### Icons
+- **Set:** Feather line icons, one family throughout. No glyph, emoji, or text character ever stands in for one — a typed `?` in the dock read thinner and smaller than its drawn neighbours because it inherited the body font instead of the stroke.
+- **Drawing:** `viewBox="0 0 24 24"`, `fill="none"`, `stroke="currentColor"`, `stroke-width="2"`, round caps and joins. Colour always arrives through `currentColor` so an icon inherits its control's state.
+- **Sizes:** 18px in the docks and topbar, 16px for in-panel controls, 14px inside settings buttons. The task-more dots are the one stroke exception (2.5), which is what makes three dots read at 16px.
 
 ### Quiet rows
 - **Style:** suggestion, task, result, and ghost rows rest transparent (or 8–10% wash inside editors) and hover to 8–14% white; keyboard-active suggestion sits at 12%.
 - **State:** icon-only row buttons (task-more, panel-close) are 6px rounds in whisper-white, washing to 10–12% on hover. Estimates hide until row hover (staying visible on touch).
+
+### Row menu
+- **Style:** a native `popover` in the top layer, so it clears the panel's own `overflow: auto` instead of being clipped by it; 172px wide, deep-violet at 0.96 with 22px blur, the menu shadow from Elevation.
+- **Placement:** hangs off its button's right edge and drops down, flipping to sit above the row only when it does not fit below — the panel is bottom-anchored, so "whichever side has more room" would send almost every menu upward. `max-height` keeps the chosen side inside the viewport and lets it scroll when neither fits. The entrance travels 4px from the side it opened from.
+- **Anchoring:** the list scrolls and the window resizes underneath an open menu, so placement re-runs while it is open rather than once. Its height is measured, never written down, so touch sizing or a new action cannot quietly break the flip.
 
 ### Signature Component
 **The readout.** A 700-weight tabular display numeral at −0.045em tracking with a blinking colon (1s steps, only while running), a springy kick on start (scale to 1.07), a slide-up swap on mode change, and a triple brightness pulse plus confetti on finish. Cycle dots (8px, 30% white with inset ring) fill solid white per completed pomodoro with a spring pop.
@@ -224,6 +238,7 @@ Controls (buttons, modes, tabs, search field, docks, toggle rows) are fully roun
 - **Do** keep white type at every mesh phase and fix contrast in the scrim, not the palette.
 - **Do** use pills for controls, 16px for floating cards, 8px for fields — and nothing in between without reason.
 - **Do** reserve filled white for the single current state (active mode, tab, dock, primary action).
+- **Do** draw every icon from the Feather set at 2px stroke on a 24 viewBox, and give a control's icon the same weight as the ones beside it.
 - **Do** move with springs (`--spring` 0.34/1.56/0.64/1, `--swift` 0.22/1/0.36/1): presses scale, hovers lift 1–3px, panels rise 10–14px at 0.96–0.98 scale.
 - **Do** honour `prefers-reduced-motion` (all motion off), `forced-colors` (fills flatten, so actives outline and sliders/switches go native), and `hover: none` (hints stay visible).
 
@@ -231,4 +246,5 @@ Controls (buttons, modes, tabs, search field, docks, toggle rows) are fully roun
 - **Don't** fetch anything on load that isn't needed to read the page — no blocking third-party, no embeds before click, self-hosted font only.
 - **Don't** add a second saturated accent, coloured shadow, or competing fill outside the mesh.
 - **Don't** put dark text on the colour field or invent a new blur step off the 10/14/22px ladder.
+- **Don't** let a text character, glyph, or emoji stand in for an icon, and don't leave a set of equal, keyed destinations at ragged natural widths — equal things get equal tracks.
 - **Don't** open more than one panel at once, add a load entrance to the stage, or loop any motion except the running colon.
