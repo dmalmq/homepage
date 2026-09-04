@@ -43,7 +43,6 @@ function stopTicking() {
   clearInterval(handle);
   handle = null;
   updateTitle();
-  paintFocus();
 }
 
 export function setMode(mode, { resetTime = true } = {}) {
@@ -53,7 +52,6 @@ export function setMode(mode, { resetTime = true } = {}) {
     timer.remaining = timer.total;
   }
   updateTitle();
-  paintFocus();
   emitTick();
 }
 
@@ -65,7 +63,6 @@ export function start() {
   endTime = Date.now() + timer.remaining * 1000;
   handle = setInterval(tick, 250);
   tick();
-  paintFocus();
   emitTick();
 }
 
@@ -184,14 +181,6 @@ function restoreTitle() {
   document.title = BASE_TITLE;
 }
 
-// While a focus session runs the page steps back: search, favorites and the
-// quote dim so the timer is the only thing shouting.
-function paintFocus() {
-  try {
-    document.getElementById('app')?.classList.toggle('is-focusing',
-      timer.running && timer.mode === 'pomodoro');
-  } catch { /* non-DOM (tests) */ }
-}
 
 // ---------- Completion notification ----------
 // Opt-in via settings; the permission prompt only ever fires from that toggle.

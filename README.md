@@ -12,10 +12,12 @@ of your day above everything else.
 - **The timer** — the centrepiece. Configurable durations, a dot per pomodoro in the
   current long-break cycle, and six end sounds.
 - **Search** — focused on load, so you can open a tab and just start typing.
+  Suggestions rank bangs, web search, and local commands (`t` task, `n` note,
+  `timer 25`, `2+2`) as you type.
 - **Jump** — up to eight favourite sites, one click away.
 - **Tasks, Notes, Listen** — behind the dock at bottom-left, one panel at a time.
   Finishing a focus session ticks off the current task and moves to the next.
-- **Weather and a quote** — in the corners, out of the way.
+- **Weather and the time** — in the corners, out of the way.
 
 The background is a CSS gradient mesh that shifts with the hour: dawn, day, dusk,
 night. You can pin it to one phase in settings.
@@ -117,7 +119,6 @@ One JSONB row holds everything:
   "search":     { "engine": "duckduckgo" },
   "weather":    { "lat": null, "lon": null, "label": "" },
   "ground":     { "mode": "auto" },
-  "showQuote": true,
   "useFavicons": false,
   "updatedAt": 1700000000000
 }

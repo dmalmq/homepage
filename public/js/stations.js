@@ -177,6 +177,9 @@ function buildFrame(embed, station) {
   frame.allow = 'autoplay; clipboard-write; encrypted-media; picture-in-picture; fullscreen';
   frame.allowFullscreen = true;
   frame.className = embed.ratio ? 'player-frame is-video' : 'player-frame';
+  // The controlled YouTube player reuses these same classes on ready, so the
+  // chime-pause check keys off this attribute instead of the class.
+  frame.dataset.fallback = 'true';
   if (!embed.ratio) frame.height = embed.height;
   return frame;
 }
@@ -282,6 +285,18 @@ export function showPlayer() {
     hide.textContent = 'Hide';
     hide.setAttribute('aria-expanded', 'true');
   }
+}
+
+/** Pause for the timer chime. Controlled players (Connect, YouTube API) halt
+ *  with state intact, so play resumes where it stopped. A raw provider
+ *  iframe — Spotify without Connect, the YouTube fallback — exposes no pause
+ *  handle, so that case stops instead: silence wins over the chime, and the
+ *  station chip restarts it. */
+export function pause() {
+  if (!playingId || !playerEl || playerEl.hidden) return;
+  if (playerEl.querySelector('iframe[data-fallback]')) return stop();
+  sp.pause().catch(() => {});
+  yt.pause();
 }
 
 export function stop() {

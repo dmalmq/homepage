@@ -25,7 +25,7 @@ function clamp(value, lo, hi, fallback) {
   return Math.min(hi, Math.max(lo, n));
 }
 
-export function mountSettings({ onSearchChange = () => {}, onQuoteChange = () => {}, onLogout = () => {} } = {}) {
+export function mountSettings({ onSearchChange = () => {}, onLogout = () => {} } = {}) {
   const dialog = $('settings');
   let repaintPending = false;
 
@@ -63,9 +63,13 @@ export function mountSettings({ onSearchChange = () => {}, onQuoteChange = () =>
     state.autoStartBreaks = e.target.checked;
     commit();
   });
+  // state.notify is the synced intent; Notification.permission lives per
+  // device and never syncs. So the checkbox shows intent while the note
+  // below says whether *this* device can actually deliver.
   $('notify-toggle').addEventListener('change', async (e) => {
     if (!e.target.checked) {
       state.notify = false;
+      $('notify-note').textContent = '';
       commit();
       return;
     }
@@ -73,13 +77,17 @@ export function mountSettings({ onSearchChange = () => {}, onQuoteChange = () =>
     if (perm === 'granted') {
       state.notify = true;
       $('notify-note').textContent = '';
-    } else {
-      e.target.checked = false;
-      $('notify-note').textContent = perm === 'unsupported'
-        ? 'This browser does not support notifications.'
-        : 'Permission was not granted — allow notifications for this site in the browser, then try again.';
+      commit();
+      return;
     }
-    commit();
+    // This device refused: leave the synced intent alone so other devices
+    // keep notifying, and say so instead of silently unchecking.
+    e.target.checked = state.notify;
+    $('notify-note').textContent = perm === 'unsupported'
+      ? 'This browser cannot show notifications.'
+      : state.notify
+        ? 'Blocked on this device — allow them in the browser to get pings here too. Other devices still notify.'
+        : 'Blocked on this device — allow them in the browser, then try again.';
   });
 
   // ---------- Appearance ----------
@@ -87,11 +95,6 @@ export function mountSettings({ onSearchChange = () => {}, onQuoteChange = () =>
     state.ground.mode = e.target.value;
     applyTheme();
     commit();
-  });
-  $('show-quote').addEventListener('change', (e) => {
-    state.showQuote = e.target.checked;
-    commit();
-    onQuoteChange();
   });
 
   $('wallpaper-mode').addEventListener('change', async (e) => {
@@ -190,7 +193,6 @@ export function mountSettings({ onSearchChange = () => {}, onQuoteChange = () =>
       results.textContent = 'Could not reach the weather service.';
     }
   });
-
   $('weather-clear').addEventListener('click', () => {
     state.weather = { lat: null, lon: null, label: '' };
     commit();
@@ -198,6 +200,20 @@ export function mountSettings({ onSearchChange = () => {}, onQuoteChange = () =>
     results.innerHTML = '';
     paintWeatherNote();
   });
+
+  function devicePermission() {
+    try {
+      if (typeof Notification === 'undefined') return 'unsupported';
+      return Notification.permission;
+    } catch { return 'denied'; }
+  }
+
+  function paintNotifyNote() {
+    if (!state.notify) { $('notify-note').textContent = ''; return; }
+    $('notify-note').textContent = devicePermission() === 'granted'
+      ? ''
+      : 'On — but this device is not allowed to show them, so pings land on your other devices.';
+  }
 
   function paintWeatherNote() {
     note.textContent = state.weather && state.weather.label
@@ -269,9 +285,9 @@ export function mountSettings({ onSearchChange = () => {}, onQuoteChange = () =>
     $('sound-select').value = state.sound || 'chime';
     $('auto-breaks').checked = !!state.autoStartBreaks;
     $('notify-toggle').checked = !!state.notify;
+    paintNotifyNote();
 
     $('ground-mode').value = state.ground.mode || 'auto';
-    $('show-quote').checked = state.showQuote !== false;
     paintWallpaper();
     paintWallpaperNotes();
 

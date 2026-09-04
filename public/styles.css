@@ -112,7 +112,7 @@ a { color: inherit; text-decoration: none; }
   z-index: -1;
   pointer-events: none;
   background:
-    /* The band the date, weather and quote sit in. The corner-weighted gradient
+    /* The band the date, weather and clock sit in. The corner-weighted gradient
        below is at its lightest along the top edge, and on the day and dawn
        blobs even pure white measures under 4.5:1 there — no ink change can
        reach it, so the shade has to come from here. */
@@ -196,25 +196,13 @@ html[data-wallpaper] {
 }
 .topbar-weather .weather-temp { color: var(--ink); font-weight: 600; }
 
-.topbar-quote {
-  max-width: 30ch;
-  text-align: right;
+.topbar-clock {
   font-size: 15px;
   font-weight: 600;
-  line-height: 1.35;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
   color: var(--ink);
-  text-wrap: balance;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
-
-/* While a focus session runs the page steps back: search, favorites and the
-   quote dim so the timer is the only thing shouting. */
-.jump, .topbar-quote { transition: opacity 0.4s ease; }
-#app.is-focusing .jump,
-#app.is-focusing .topbar-quote { opacity: 0.35; }
 
 /* ---------- Centre stage ---------- */
 .stage {
@@ -223,7 +211,7 @@ html[data-wallpaper] {
   min-height: 0;
 }
 
-/* A quiet segmented pill in the empty band between date and quote. */
+/* A quiet segmented pill in the empty band between date and clock. */
 .stage-tabs {
   position: absolute;
   top: 0;
@@ -342,8 +330,7 @@ html[data-wallpaper] {
 .stage-copy.is-combined .stage-intention { font-size: 13px; color: var(--ink-faint); }
 
 /* ---------- Timer ---------- */
-#timer-root,
-#clock-root {
+#timer-root {
   display: flex;
   justify-content: center;
 }
@@ -403,11 +390,6 @@ html[data-wallpaper] {
   -webkit-backdrop-filter: blur(10px);
 }
 .btn:hover { background: var(--glass-hover); }
-.btn--small {
-  font-size: 13px;
-  font-weight: 600;
-  padding: 6px 12px;
-}
 .btn--primary {
   background: rgb(255 255 255 / 0.95);
   border-color: transparent;
@@ -472,31 +454,83 @@ html[data-wallpaper] {
   white-space: nowrap;
 }
 .search-engine.is-bang { color: var(--ink-soft); }
+.search-suggest {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: rgb(22 13 43 / 0.94);
+  border: 1px solid var(--glass-line);
+  border-radius: 16px;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 0.35);
+}
+.search-suggest[hidden] { display: none; }
+.sug {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.sug.is-active { background: rgb(255 255 255 / 0.12); }
+.sug-tag {
+  flex: none;
+  min-width: 4ch;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  border: 1px solid rgb(255 255 255 / 0.25);
+  border-radius: 6px;
+  padding: 2px 5px;
+}
+.sug.is-active .sug-tag { color: var(--ink); border-color: rgb(255 255 255 / 0.5); }
+.sug-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+}
+.sug-detail { flex: none; font-size: 12px; color: var(--ink-faint); }
 
 .fav-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
   justify-content: center;
 }
-.fav-empty { font-size: 12px; color: var(--ink-faint); }
+.fav-empty { font-size: 13px; color: var(--ink-faint); }
 
 .fav {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 7px 13px;
+  gap: 9px;
+  padding: 10px 18px;
   border-radius: var(--pill);
   background: rgb(255 255 255 / 0.10);
   border: 1px solid transparent;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--ink);
   transition: background 0.15s ease, color 0.15s ease;
 }
 .fav:hover { background: rgb(255 255 255 / 0.20); }
-.fav-mark { font-weight: 700; font-size: 12px; letter-spacing: 0.02em; }
-.fav-mark img { width: 15px; height: 15px; display: block; }
-.fav-label { max-width: 14ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fav-mark { font-weight: 700; font-size: 14px; letter-spacing: 0.02em; }
+.fav-mark img { width: 17px; height: 17px; display: block; }
+.fav-label { max-width: 16ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fav-key {
   font-size: 10px;
   font-weight: 700;
@@ -511,8 +545,6 @@ html[data-wallpaper] {
 @media (hover: none) {
   .fav-key { opacity: 0.9; }
 }
-
-/* ---------- Docks ---------- */
 .dock {
   position: fixed;
   bottom: 22px;
@@ -820,10 +852,37 @@ html[data-wallpaper] {
   color: var(--ink);
   min-width: 3.2em;
 }
+/* In the overlay the card is narrow enough that space-between reads as a pair.
+   At settings width it opened a 20rem river between the key and its meaning,
+   twelve times over. Here the rows flatten into one four-column grid so both
+   halves stay adjacent and the descriptions share an axis. */
 .keys-list--settings {
-  max-width: 28rem;
-  margin-top: 4px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr);
+  column-gap: 14px;
+  row-gap: 5px;
+  max-width: none;
+  margin-top: 0;
 }
+.keys-list--settings > div { display: contents; }
+.keys-list--settings kbd {
+  justify-self: start;
+  min-width: 0;
+  padding: 2px 7px;
+  font-size: 12px;
+  line-height: 1.45;
+  background: rgb(255 255 255 / 0.08);
+  border: 1px solid var(--glass-line);
+  border-radius: 5px;
+}
+.keys-list--settings span {
+  align-self: center;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+/* Odd children are always the left-hand pair, so this widens the gutter
+   between the two columns without touching the gap inside a pair. */
+.keys-list--settings > div:nth-child(odd) span { padding-right: 20px; }
 
 /* ---------- Notes ---------- */
 .notes-area {
@@ -1036,9 +1095,6 @@ html[data-wallpaper] {
   animation: none;
 }
 
-.spotify-auth { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
-.spotify-auth .field-note { margin: 0; flex: 1; }
-
 /* ---------- YouTube player ---------- */
 .yt-video-wrap {
   position: relative;
@@ -1077,14 +1133,24 @@ html[data-wallpaper] {
 }
 
 /* ---------- Settings ---------- */
+/* One dialog, one grid. Every label sits on the --set-label axis and every
+   control starts where that axis ends, so nine sections read as one list
+   instead of nine stacks. Rhythm comes from a single flex gap per group
+   rather than four competing margins. */
 .ghost-btn {
-  font: inherit; font-size: 13px;
+  font: inherit; font-size: 13px; font-weight: 600;
   color: var(--ink-soft);
-  background: none; border: 0; padding: 4px 2px; cursor: pointer;
+  background: none; border: 0; padding: 6px 8px; margin: -6px -8px;
+  border-radius: 8px;
+  cursor: pointer;
 }
-.ghost-btn:hover { color: var(--ink); }
+.ghost-btn:hover { color: var(--ink); background: rgb(255 255 255 / 0.08); }
 
 .settings {
+  --set-label: 190px;
+  --set-gap: 10px;
+  --set-h: 36px;
+  --set-field: 210px;
   width: min(620px, calc(100vw - 32px));
   max-height: 84vh;
   padding: 0;
@@ -1094,79 +1160,215 @@ html[data-wallpaper] {
   border-radius: 16px;
   backdrop-filter: blur(22px);
   -webkit-backdrop-filter: blur(22px);
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.22) transparent;
 }
 .settings::backdrop { background: rgb(0 0 0 / 0.5); backdrop-filter: blur(3px); }
+.settings::-webkit-scrollbar { width: 10px; }
+.settings::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 0.18);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: var(--pill);
+}
+.settings::-webkit-scrollbar-thumb:hover { background: rgb(255 255 255 / 0.3); background-clip: content-box; }
 
 .settings-head {
-  position: sticky; top: 0;
+  position: sticky; top: 0; z-index: 1;
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  padding: 18px 24px;
+  padding: 16px 24px;
   background: rgb(18 12 34 / 0.96);
   border-bottom: 1px solid var(--glass-line);
 }
-.settings-head h2 { font-size: 16px; font-weight: 600; }
-.settings-body { padding: 4px 24px 24px; }
-
-.field { border: 0; padding: 20px 0; border-bottom: 1px solid var(--glass-line); }
-.field:last-of-type { border-bottom: 0; }
-.field legend { font-size: 12px; font-weight: 600; color: var(--ink-soft); padding-bottom: 12px; }
-.field-note { font-size: 12px; color: var(--ink-faint); margin-bottom: 12px; max-width: 62ch; }
-.field-row + .field-note,
-.field-check + .field-note { margin-top: 10px; margin-bottom: 0; }
-
-.wallpaper-mode { margin-top: 16px; }
-.wallpaper-opts { margin-top: 12px; }
-.wallpaper-url { flex: 1; min-width: 12rem; }
-
-.field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; }
-.field-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
-
-.field label, .field-grid label {
-  display: flex; flex-direction: column; gap: 5px;
-  font-size: 12px; color: var(--ink-soft);
+.settings-head h2 { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+.settings-body {
+  padding: 0 24px 24px;
+  container-type: inline-size;
+  container-name: settings;
 }
-.field-check {
-  flex-direction: row !important;
-  align-items: center; gap: 8px;
-  margin-top: 12px; max-width: 62ch; line-height: 1.4;
-  min-height: 24px;
-}
-.field-check input[type="checkbox"] { width: 16px; height: 16px; flex: none; }
 
+/* ---------- Section ---------- */
+.field { border: 0; padding: 0; margin: 0; }
+.field + .field { margin-top: 32px; }
+.field legend {
+  display: block;
+  width: 100%;
+  padding: 0 0 8px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--glass-line);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.field:first-of-type { margin-top: 24px; }
+
+.set-body { display: flex; flex-direction: column; gap: var(--set-gap); }
+.set-sub {
+  padding-left: 14px;
+  border-left: 1px solid var(--glass-line);
+  margin: 2px 0;
+}
+
+/* ---------- Rows ---------- */
+.set-row {
+  display: grid;
+  grid-template-columns: var(--set-label) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px 16px;
+  min-height: var(--set-h);
+}
+.set-row > label,
+.set-rowlabel {
+  font-size: 14px;
+  color: var(--ink-soft);
+  line-height: 1.35;
+}
+.set-control { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.set-unit { font-size: 13px; color: var(--ink-faint); }
+
+/* The auth line is a note plus one button, so the label column would only
+   hold a fragment of a sentence. It spans instead. */
+.set-row--auth { grid-template-columns: minmax(0, 1fr) auto; }
+.set-row--auth .set-note { margin: 0; }
+
+.set-note {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-faint);
+  max-width: 62ch;
+  text-wrap: pretty;
+}
+.set-row + .set-note,
+.set-toggle + .set-note { margin-top: -4px; }
+.set-note:empty { display: none; }
+
+/* ---------- Toggle rows ---------- */
+/* The switch trails the label so every toggle in the dialog shares one right
+   edge, and the sentence keeps the full width it needs. */
+.set-toggle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  min-height: var(--set-h);
+  font-size: 14px;
+  color: var(--ink-soft);
+  line-height: 1.35;
+  cursor: pointer;
+}
+.set-toggle:hover { color: var(--ink); }
+
+/* A real checkbox with its pixels redrawn: role, state, keyboard and the
+   :checked selector all stay native. The knob is a background layer rather
+   than ::after, because generated content on a replaced element is not
+   dependable — and background-position animates just as well. */
+.switch {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  width: 40px; height: 22px;
+  margin: 0;
+  border-radius: var(--pill);
+  border: 1px solid var(--glass-line);
+  background-color: rgb(0 0 0 / 0.35);
+  background-image: radial-gradient(circle, var(--ink-soft) 49%, transparent 51%);
+  background-repeat: no-repeat;
+  background-size: 14px 14px;
+  background-position: 3px center;
+  cursor: pointer;
+  transition: background-color 0.18s ease, background-position 0.2s var(--swift),
+              border-color 0.18s ease;
+}
+.switch:hover { border-color: var(--ink-faint); }
+.switch:checked {
+  background-color: rgb(255 255 255 / 0.92);
+  background-image: radial-gradient(circle, var(--ink-invert) 49%, transparent 51%);
+  background-position: 21px center;
+}
+@media (forced-colors: active) {
+  .switch { appearance: auto; width: auto; height: auto; background-image: none; }
+}
+
+/* ---------- Fields ---------- */
 .field input[type="text"],
 .field input[type="url"],
 .field input[type="number"],
 .field select {
   font: inherit; font-size: 14px;
+  height: var(--set-h);
   color: var(--ink);
   background: rgb(255 255 255 / 0.08);
   border: 1px solid var(--glass-line);
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 0 10px;
+  min-width: 0;
 }
+.field select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: var(--set-field);
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-opacity='0.66' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  background-size: 15px 15px;
+}
+.field select:hover { background-color: rgb(255 255 255 / 0.12); }
+@media (forced-colors: active) {
+  .field select { appearance: auto; background-image: none; padding-right: 10px; }
+}
+/* Sized to its content: three digits, not a text field. */
+.set-num { width: 76px; }
+.set-control > input[type="url"],
+.set-control > input[type="text"] { width: var(--set-field); flex: none; }
 /* Not --ink-invert: this is the surface behind the ink, the same value in
    the opposite role. Native option popups take little else. */
 .field select option { background: #1b1035; color: var(--ink); }
 .field input:focus, .field select:focus { border-color: var(--ink-soft); }
 
-.results { display: flex; flex-direction: column; gap: 2px; margin-top: 10px; }
+/* One button weight inside the dialog. The pill .btn is the timer's primary
+   control and outranked everything here; this matches the field it sits beside,
+   down to the radius. */
+.set-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font: inherit; font-size: 13px; font-weight: 600;
+  height: var(--set-h);
+  padding: 0 12px;
+  color: var(--ink-soft);
+  background: rgb(255 255 255 / 0.08);
+  border: 1px solid var(--glass-line);
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.set-btn:hover { color: var(--ink); background: rgb(255 255 255 / 0.14); }
+.set-btn:active { background: rgb(255 255 255 / 0.2); }
+.set-btn:disabled { opacity: 0.45; cursor: default; }
+.set-btn svg { flex: none; }
+
+.results { display: flex; flex-direction: column; gap: 2px; }
 .result {
-  font: inherit; font-size: 13px; text-align: left;
+  font: inherit; font-size: 13px; text-align: start;
   color: var(--ink-soft);
   background: none; border: 0; border-radius: 8px;
-  padding: 6px 8px; cursor: pointer;
+  padding: 7px 10px; cursor: pointer;
 }
 .result:hover { color: var(--ink); background: rgb(255 255 255 / 0.10); }
 
+/* ---------- Row editors ---------- */
 .editor { display: flex; flex-direction: column; gap: 8px; }
 .edit-row { display: grid; grid-template-columns: 1fr 1.7fr auto; gap: 8px; align-items: center; }
 .edit-row input {
   font: inherit; font-size: 13px;
+  height: var(--set-h);
   color: var(--ink);
   background: rgb(255 255 255 / 0.08);
   border: 1px solid var(--glass-line);
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 0 10px;
   min-width: 0;
 }
 .edit-row input:focus { border-color: var(--ink-soft); }
@@ -1178,26 +1380,45 @@ html[data-wallpaper] {
 }
 
 .edit-remove {
+  display: grid; place-items: center;
   font: inherit; font-size: 12px;
   color: var(--ink-faint);
   background: none; border: 0; cursor: pointer;
   min-width: 24px; min-height: 24px; padding: 4px;
+  border-radius: 6px;
 }
-.edit-remove:hover { color: var(--ink); }
+.edit-remove:hover { color: var(--ink); background: rgb(255 255 255 / 0.10); }
 
 .edit-add {
   align-self: flex-start;
-  font: inherit; font-size: 13px;
+  font: inherit; font-size: 13px; font-weight: 600;
   color: var(--ink-soft);
   background: none;
   border: 1px dashed var(--glass-line);
-  border-radius: var(--pill);
-  padding: 8px 16px;
+  border-radius: 8px;
+  height: var(--set-h);
+  padding: 0 14px;
   cursor: pointer;
 }
-.edit-add:hover { color: var(--ink); border-color: var(--ink-faint); }
+.edit-add:hover { color: var(--ink); border-color: var(--ink-faint); background: rgb(255 255 255 / 0.05); }
 
-.settings-foot { padding-top: 20px; border-top: 1px solid var(--glass-line); }
+.settings-foot { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--glass-line); }
+
+/* Narrow dialog: the label axis costs more than it buys, so rows stack and
+   every control takes the full width it can get. */
+@container settings (max-width: 440px) {
+  .set-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .set-row--auth { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+  .field select,
+  .set-control > input[type="url"],
+  .set-control > input[type="text"] { width: 100%; }
+  .set-num { width: 76px; }
+  .edit-row { grid-template-columns: 1fr auto; }
+  .edit-row input:nth-child(2) { grid-column: 1 / -1; }
+  .edit-error { grid-column: 1 / -1; }
+  .keys-list--settings { grid-template-columns: auto minmax(0, 1fr); }
+  .keys-list--settings > div:nth-child(odd) span { padding-right: 0; }
+}
 
 /* ---------- Login ---------- */
 .login {
@@ -1232,7 +1453,6 @@ html[data-wallpaper] {
 /* ---------- Responsive ---------- */
 @media (max-width: 720px) {
   .app { padding: 18px; }
-  .topbar-quote { display: none; }
   .readout { font-size: clamp(64px, 22vw, 110px); }
   .stage-view:not([hidden]) { gap: 14px; }
   .stage-tabs { top: 42px; }
@@ -1248,10 +1468,6 @@ html[data-wallpaper] {
   }
   .search-engine { display: none; }
   .search-input { padding: 12px 20px; }
-  .edit-row { grid-template-columns: 1fr auto; }
-  .edit-row input:nth-child(2) { grid-column: 1 / -1; }
-  .edit-error { grid-column: 1 / -1; }
-
   /* iOS Safari zooms the whole page when a focused field renders below 16px,
      which throws the fixed docks and the panel off mid-typing. The desktop
      density above is deliberate, so the lift only applies down here. */
@@ -1284,13 +1500,12 @@ html[data-wallpaper] {
   .mode { padding: 7px 16px; font-size: 13px; }
   .stage-view:not([hidden]) { gap: 10px; }
   .jump { gap: 10px; }
-  .topbar-quote { display: none; }
 }
 
 /* Below this the overlay stops being safe. Measured with the worst case — a
-   wrapping quote, a two-line intention and a long task title — the gap between
-   the topbar and the timer holds down to about 440px and goes negative shortly
-   after, so this is where the topbar needs its own row back. */
+   two-line intention and a long task title — the gap between the topbar and
+   the timer holds down to about 440px and goes negative shortly after, so
+   this is where the topbar needs its own row back. */
 @media (max-height: 440px) {
   .app { grid-template-rows: auto 1fr; }
   .app > .topbar { grid-area: auto; align-self: auto; }
@@ -1317,11 +1532,13 @@ html[data-wallpaper] {
 }
 
 /* ---------- Presses and hovers ---------- */
-.btn, .mode, .fav, .dock-btn, .dock-count, .icon-btn, .station, .edit-add, .result, .stage-tab {
+.btn, .mode, .fav, .dock-btn, .dock-count, .icon-btn, .station, .edit-add, .result, .stage-tab,
+.set-btn, .ghost-btn, .switch {
   transition: transform 0.22s var(--spring), background 0.18s ease,
               color 0.18s ease, border-color 0.18s ease, box-shadow 0.22s var(--spring);
 }
 .btn:active, .mode:active, .station:active, .edit-add:active { transform: scale(0.94); }
+.set-btn:active { transform: scale(0.97); }
 .dock-btn:active, .icon-btn:active { transform: scale(0.88); }
 .fav:active { transform: scale(0.96); }
 

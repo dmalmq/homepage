@@ -42,7 +42,7 @@
         <p id="date" class="topbar-date"></p>
         <p id="weather" class="topbar-weather"></p>
       </div>
-      <p id="quote" class="topbar-quote"></p>
+      <time id="topbar-clock" class="topbar-clock" aria-label="Current time"></time>
     </header>
 
     <main class="stage">
@@ -55,11 +55,11 @@
 
       <div id="stage-start" class="stage-view" role="tabpanel" aria-labelledby="tab-start">
         <div class="stage-north"></div>
-        <div id="clock-root"></div>
-        <div class="jump stage-south">
+        <div class="jump">
           <div id="search-root"></div>
           <div id="favorites-root" class="fav-row"></div>
         </div>
+        <div class="stage-south"></div>
       </div>
 
       <div id="stage-pomodoro" class="stage-view" role="tabpanel" aria-labelledby="tab-pomodoro" hidden>
@@ -125,130 +125,194 @@
 
         <fieldset class="field">
           <legend>Timer</legend>
-          <div class="field-grid">
-            <label>Focus<input id="dur-pomodoro" type="number" min="1" max="180" /></label>
-            <label>Short break<input id="dur-short" type="number" min="1" max="60" /></label>
-            <label>Long break<input id="dur-long" type="number" min="1" max="60" /></label>
-            <label>Long break every<input id="dur-interval" type="number" min="2" max="12" /></label>
+          <div class="set-body">
+            <div class="set-row">
+              <label for="dur-pomodoro">Focus</label>
+              <div class="set-control">
+                <input id="dur-pomodoro" class="set-num" type="number" min="1" max="180" />
+                <span class="set-unit">min</span>
+              </div>
+            </div>
+            <div class="set-row">
+              <label for="dur-short">Short break</label>
+              <div class="set-control">
+                <input id="dur-short" class="set-num" type="number" min="1" max="60" />
+                <span class="set-unit">min</span>
+              </div>
+            </div>
+            <div class="set-row">
+              <label for="dur-long">Long break</label>
+              <div class="set-control">
+                <input id="dur-long" class="set-num" type="number" min="1" max="60" />
+                <span class="set-unit">min</span>
+              </div>
+            </div>
+            <div class="set-row">
+              <label for="dur-interval">Long break every</label>
+              <div class="set-control">
+                <input id="dur-interval" class="set-num" type="number" min="2" max="12" />
+                <span class="set-unit">sessions</span>
+              </div>
+            </div>
+            <div class="set-row">
+              <label for="sound-select">End sound</label>
+              <div class="set-control">
+                <select id="sound-select"></select>
+                <button type="button" id="sound-preview" class="set-btn">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l14 9-14 9V3z"/></svg>
+                  Play it
+                </button>
+              </div>
+            </div>
+            <label class="set-toggle">
+              <span>Start breaks automatically when a focus session ends</span>
+              <input id="auto-breaks" type="checkbox" class="switch" />
+            </label>
+            <label class="set-toggle">
+              <span>Show a system notification when a session ends</span>
+              <input id="notify-toggle" type="checkbox" class="switch" />
+            </label>
+            <p id="notify-note" class="set-note"></p>
           </div>
-          <div class="field-row">
-            <label>End sound<select id="sound-select"></select></label>
-            <button type="button" id="sound-preview" class="btn">Play it</button>
-          </div>
-          <label class="field-check">
-            <input id="auto-breaks" type="checkbox" />
-            Start breaks automatically when a focus session ends
-          </label>
-          <label class="field-check">
-            <input id="notify-toggle" type="checkbox" />
-            Show a system notification when a session ends
-          </label>
-          <p id="notify-note" class="field-note"></p>
         </fieldset>
 
         <fieldset class="field">
           <legend>Keys</legend>
-          <p class="field-note">Search is focused on load, so type a query straight away. Escape, then a key.</p>
-          <div id="keys-settings" class="keys-list keys-list--settings"></div>
+          <div class="set-body">
+            <p class="set-note">Search is focused on load, so type a query straight away. Escape, then a key.</p>
+            <div id="keys-settings" class="keys-list keys-list--settings"></div>
+          </div>
         </fieldset>
 
         <fieldset class="field">
           <legend>Appearance</legend>
-          <div class="field-grid">
-            <label>Colour<select id="ground-mode">
-              <option value="auto">Shifts with the hour</option>
-              <option value="dawn">Always dawn</option>
-              <option value="day">Always day</option>
-              <option value="dusk">Always dusk</option>
-              <option value="night">Always night</option>
-            </select></label>
-          </div>
-          <label class="field-check">
-            <input id="show-quote" type="checkbox" />
-            Show a quote in the corner
-          </label>
+          <div class="set-body">
+            <div class="set-row">
+              <label for="ground-mode">Colour</label>
+              <div class="set-control">
+                <select id="ground-mode">
+                  <option value="auto">Shifts with the hour</option>
+                  <option value="dawn">Always dawn</option>
+                  <option value="day">Always day</option>
+                  <option value="dusk">Always dusk</option>
+                  <option value="night">Always night</option>
+                </select>
+              </div>
+            </div>
+            <div class="set-row">
+              <label for="wallpaper-mode">Background</label>
+              <div class="set-control">
+                <select id="wallpaper-mode"></select>
+              </div>
+            </div>
 
-          <div class="field-grid wallpaper-mode">
-            <label>Background<select id="wallpaper-mode"></select></label>
-          </div>
+            <div id="wallpaper-image" class="set-body set-sub" hidden>
+              <div class="set-row">
+                <label for="wallpaper-url">Address</label>
+                <div class="set-control">
+                  <input id="wallpaper-url" type="url" placeholder="https://…" />
+                </div>
+              </div>
+              <div class="set-row">
+                <span class="set-rowlabel">Picture</span>
+                <div class="set-control">
+                  <button type="button" id="wallpaper-pick-file" class="set-btn">Pick a picture</button>
+                  <button type="button" id="wallpaper-clear-file" class="set-btn">Clear picture</button>
+                </div>
+              </div>
+              <p id="wallpaper-image-note" class="set-note"></p>
+            </div>
 
-          <div id="wallpaper-image" class="wallpaper-opts" hidden>
-            <div class="field-row">
-              <label class="wallpaper-url">Address
-                <input id="wallpaper-url" type="url" placeholder="https://…" />
-              </label>
+            <div id="wallpaper-folder" class="set-body set-sub" hidden>
+              <p class="set-note">
+                Pictures stay on this computer — the folder isn’t synced.
+                Chrome will ask for access the first time.
+              </p>
+              <div class="set-row">
+                <span class="set-rowlabel">Folder</span>
+                <div class="set-control">
+                  <button type="button" id="wallpaper-pick-folder" class="set-btn">Choose a folder</button>
+                  <button type="button" id="wallpaper-clear-folder" class="set-btn">Clear folder</button>
+                </div>
+              </div>
+              <div class="set-row">
+                <label for="wallpaper-interval">Change picture</label>
+                <div class="set-control">
+                  <select id="wallpaper-interval"></select>
+                </div>
+              </div>
+              <p id="wallpaper-folder-note" class="set-note"></p>
             </div>
-            <div class="field-row">
-              <button type="button" id="wallpaper-pick-file" class="btn btn--small">Pick a picture</button>
-              <button type="button" id="wallpaper-clear-file" class="btn btn--small">Clear picture</button>
-            </div>
-            <p id="wallpaper-image-note" class="field-note"></p>
-          </div>
 
-          <div id="wallpaper-folder" class="wallpaper-opts" hidden>
-            <p class="field-note">
-              Pictures stay on this computer — the folder isn’t synced.
-              Chrome will ask for access the first time.
-            </p>
-            <div class="field-row">
-              <button type="button" id="wallpaper-pick-folder" class="btn btn--small">Choose a folder</button>
-              <button type="button" id="wallpaper-clear-folder" class="btn btn--small">Clear folder</button>
-            </div>
-            <div class="field-row">
-              <label>Change picture<select id="wallpaper-interval"></select></label>
-            </div>
-            <p id="wallpaper-folder-note" class="field-note"></p>
           </div>
         </fieldset>
 
         <fieldset class="field">
           <legend>Search</legend>
-          <div class="field-row">
-            <label>Engine<select id="engine-select"></select></label>
+          <div class="set-body">
+            <div class="set-row">
+              <label for="engine-select">Engine</label>
+              <div class="set-control">
+                <select id="engine-select"></select>
+              </div>
+            </div>
+            <p id="bang-note" class="set-note"></p>
           </div>
-          <p id="bang-note" class="field-note"></p>
         </fieldset>
 
         <fieldset class="field">
           <legend>Tasks</legend>
-          <label class="field-check">
-            <input id="carry-tasks" type="checkbox" />
-            Keep unfinished tasks tomorrow
-          </label>
-          <p class="field-note">Turned off, anything still open at midnight moves to Later.</p>
+          <div class="set-body">
+            <label class="set-toggle">
+              <span>Keep unfinished tasks tomorrow</span>
+              <input id="carry-tasks" type="checkbox" class="switch" />
+            </label>
+            <p class="set-note">Turned off, anything still open at midnight moves to Later.</p>
+          </div>
         </fieldset>
 
         <fieldset class="field">
           <legend>Weather</legend>
-          <div class="field-row">
-            <label>Town or city<input id="weather-query" type="text" placeholder="Tokyo" /></label>
-            <button type="button" id="weather-search" class="btn">Find</button>
-            <button type="button" id="weather-clear" class="btn">Clear</button>
+          <div class="set-body">
+            <div class="set-row">
+              <label for="weather-query">Town or city</label>
+              <div class="set-control">
+                <input id="weather-query" type="text" placeholder="Tokyo" />
+                <button type="button" id="weather-search" class="set-btn">Find</button>
+                <button type="button" id="weather-clear" class="set-btn">Clear</button>
+              </div>
+            </div>
+            <p id="weather-current" class="set-note"></p>
+            <div id="weather-results" class="results"></div>
           </div>
-          <p id="weather-current" class="field-note"></p>
-          <div id="weather-results" class="results"></div>
         </fieldset>
 
         <fieldset class="field">
           <legend>Favorite sites</legend>
-          <p class="field-note">Up to eight. They show as letter tiles unless you turn on favicons.</p>
-          <div id="favorites-editor" class="editor"></div>
-          <label class="field-check">
-            <input id="use-favicons" type="checkbox" />
-            Use real favicons (fetches an icon per site from duckduckgo.com on every load)
-          </label>
+          <div class="set-body">
+            <p class="set-note">Up to eight. They show as letter tiles unless you turn on favicons.</p>
+            <div id="favorites-editor" class="editor"></div>
+            <label class="set-toggle">
+              <span>Use real favicons (fetches an icon per site from duckduckgo.com on every load)</span>
+              <input id="use-favicons" type="checkbox" class="switch" />
+            </label>
+          </div>
         </fieldset>
 
         <fieldset class="field">
           <legend>Listen</legend>
-          <p class="field-note">
-            Spotify or YouTube links. Nothing loads until you click a station, and
-            audio only plays in the tab you started it from.
-          </p>
-          <div id="stations-editor" class="editor"></div>
-          <div class="spotify-auth">
-            <span id="spotify-state" class="field-note"></span>
-            <button type="button" id="spotify-connect" class="btn btn--small"></button>
+          <div class="set-body">
+            <p class="set-note">
+              Spotify or YouTube links. Nothing loads until you click a station, and
+              audio only plays in the tab you started it from.
+            </p>
+            <div id="stations-editor" class="editor"></div>
+            <div class="set-row set-row--auth">
+              <span id="spotify-state" class="set-note"></span>
+              <div class="set-control">
+                <button type="button" id="spotify-connect" class="set-btn"></button>
+              </div>
+            </div>
           </div>
         </fieldset>
 

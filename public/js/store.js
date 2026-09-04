@@ -26,7 +26,6 @@ export const DEFAULTS = {
     url: '',
     interval: 5,                      // minutes; 0 = only when the tab opens
   },
-  showQuote: true,
   useFavicons: false,
   intention: '',                      // one line for the day; cleared at midnight
   later: [],                          // [{ id, text }] — parked, not today's queue

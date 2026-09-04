@@ -1,6 +1,6 @@
-// The middle of the page is two views: Start (clock, search, favorites) and
+// The middle of the page is two views: Start (search, favorites, centred) and
 // Pomodoro (intention, task, timer). A new tab always opens on Start — that's
-// the reason the page is the default new-tab.
+// the reason the page is the default new-tab. The time lives in the topbar.
 
 const TABS = ['start', 'pomodoro'];
 
