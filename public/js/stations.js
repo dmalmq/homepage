@@ -15,6 +15,8 @@
 import { state, commit, uid, subscribe } from './store.js';
 import * as sp from './spotify.js';
 import * as spPanel from './spotify-panel.js';
+import * as yt from './youtube.js';
+import * as ytPanel from './youtube-panel.js';
 
 const SPOTIFY_TYPES = 'track|album|playlist|artist|episode|show';
 
@@ -45,13 +47,19 @@ export function toEmbed(rawUrl) {
   if (ytVideo) {
     return {
       kind: 'youtube',
-      src: `https://www.youtube.com/embed/${ytVideo[1]}?autoplay=1&rel=0`,
+      videoId: ytVideo[1],
+      listId: ytPlaylist ? ytPlaylist[1] : null,
+      src: ytPlaylist
+        ? `https://www.youtube.com/embed/${ytVideo[1]}?list=${ytPlaylist[1]}&autoplay=1&rel=0`
+        : `https://www.youtube.com/embed/${ytVideo[1]}?autoplay=1&rel=0`,
       ratio: true,
     };
   }
   if (ytPlaylist && /youtube\.com/.test(url)) {
     return {
       kind: 'youtube',
+      videoId: null,
+      listId: ytPlaylist[1],
       src: `https://www.youtube.com/embed/videoseries?list=${ytPlaylist[1]}&autoplay=1&rel=0`,
       ratio: true,
     };
@@ -106,6 +114,8 @@ export function play(station) {
   // replacing the player markup is not enough to silence it.
   spPanel.unmount();
   sp.pause().catch(() => {});
+  ytPanel.unmount();
+  yt.stop();
   playerEl.innerHTML = '';
   tucked = false;
   playerEl.classList.remove('is-tucked');
@@ -152,6 +162,7 @@ export function play(station) {
   renderChips();
 
   if (embed.kind === 'spotify') routeSpotify(embed, stage, station);
+  else if (embed.kind === 'youtube') routeYoutube(embed, stage, station);
   else stage.append(buildFrame(embed, station));
 }
 
@@ -196,6 +207,25 @@ function routeSpotify(embed, stage, station) {
     } catch (e) {
       console.warn('spotify connect player failed, using the embed', e);
       if (station.id === playingId) fallback(null);
+    }
+  })();
+}
+
+/** Mount the YouTube player with custom controls, falling back to raw embed on error. */
+function routeYoutube(embed, stage, station) {
+  const fallback = () => {
+    ytPanel.unmount();
+    yt.stop();
+    stage.replaceChildren();
+    stage.append(buildFrame(embed, station));
+  };
+
+  (async () => {
+    try {
+      await ytPanel.mountStage(stage, embed, station, fallback, () => station.id === playingId);
+    } catch (e) {
+      console.warn('youtube player failed, using the embed', e);
+      if (station.id === playingId) fallback();
     }
   })();
 }
@@ -255,6 +285,8 @@ export function stop() {
   tucked = false;
   sp.pause().catch(() => {});
   spPanel.unmount();
+  yt.stop();
+  ytPanel.unmount();
   playerEl.classList.remove('is-tucked');
   playerEl.innerHTML = '';
   playerEl.hidden = true;
