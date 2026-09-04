@@ -38,6 +38,64 @@ function dest(bang, rest) {
   if (!rest) return { name: bang.name, url: bang.home, bang: true };
   return { name: bang.name, url: bang.search + encodeURIComponent(rest), bang: true };
 }
+// Local commands run without a network request. Checked before bare bangs so
+// `t buy milk` adds a task rather than searching; `!t buy milk` still forces
+// a web search via the unknown-bang fallback in resolveSearch.
+export function tryEvaluateMath(raw) {
+  const expr = String(raw || '').trim();
+  if (!expr || expr.length > 60) return null;
+  if (!/^[0-9\s+\-*/%().]+$/.test(expr)) return null;
+  if (!/\d/.test(expr) || !/[+\-*/%()]/.test(expr)) return null;
+  // `//` and `/*` would open a JS comment inside the Function body below.
+  if (expr.includes('//') || expr.includes('/*')) return null;
+  let depth = 0;
+  for (const ch of expr) {
+    if (ch === '(') depth++;
+    if (ch === ')' && --depth < 0) return null;
+  }
+  if (depth !== 0) return null;
+  let value;
+  try {
+    value = Function(`"use strict";return(${expr})`)();
+  } catch { return null; }
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  if (Math.abs(value) >= 1e15) return null;
+  return Number.isInteger(value) ? String(value) : String(parseFloat(value.toFixed(4)));
+}
+
+function short(s, n = 32) {
+  const v = String(s || '').trim().replace(/\s+/g, ' ');
+  return v.length > n ? v.slice(0, n - 1) + '…' : v;
+}
+
+/** A local command, or null when the query is a plain web search. */
+export function parseLocalCommand(raw) {
+  const q = String(raw || '').trim();
+  if (!q) return null;
+  let m = q.match(/^(?:tl|later)\s+([\s\S]+)$/i);
+  if (m && m[1].trim()) {
+    return { name: `Later: ${short(m[1])}`, url: null, bang: true, local: { kind: 'task', list: 'later', text: m[1].trim().slice(0, 120) } };
+  }
+  m = q.match(/^t\s+([\s\S]+)$/i);
+  if (m && m[1].trim()) {
+    return { name: `Task: ${short(m[1])}`, url: null, bang: true, local: { kind: 'task', list: 'today', text: m[1].trim().slice(0, 120) } };
+  }
+  m = q.match(/^n\s+([\s\S]+)$/i);
+  if (m && m[1].trim()) {
+    return { name: `Note: ${short(m[1])}`, url: null, bang: true, local: { kind: 'note', text: m[1].trim() } };
+  }
+  m = q.match(/^(?:timer|focus|break)\s+(\d+(?:\.\d+)?)\s*(?:m(?:ins?)?)?$/i);
+  if (m) {
+    const minutes = Math.min(180, Math.max(1, Math.round(Number(m[1]))));
+    const mode = m[0].toLowerCase().startsWith('break') ? 'short' : 'pomodoro';
+    return { name: `Start ${minutes}m ${mode === 'short' ? 'break' : 'focus'}`, url: null, bang: true, local: { kind: 'timer', mode, minutes } };
+  }
+  const math = tryEvaluateMath(q);
+  if (math !== null) {
+    return { name: `= ${math}`, url: null, bang: true, local: { kind: 'calc', value: math, expr: q } };
+  }
+  return null;
+}
 
 /** Where a query will go. Empty input falls back to the default engine, no url. */
 export function resolveSearch(raw) {
@@ -56,6 +114,8 @@ export function resolveSearch(raw) {
     if (!bang) return fallback;
     return dest(bang, (forced[2] || '').trim());
   }
+  const local = parseLocalCommand(q);
+  if (local) return local;
 
   const spaced = q.match(/^(\S+)\s+([\s\S]+)$/);
   if (spaced) {
@@ -66,11 +126,11 @@ export function resolveSearch(raw) {
   return fallback;
 }
 
-export function mountSearch(root, { autofocus = true } = {}) {
+export function mountSearch(root, { autofocus = true, onLocal = null } = {}) {
   root.innerHTML = `
     <form class="search" role="search">
       <input class="search-input" type="text" name="q" autocomplete="off"
-             spellcheck="false" aria-label="Search the web" />
+             spellcheck="false" aria-label="Search the web" title="t task · tl task for later · n note · timer 25 · 2+2 calculates" />
       <span class="search-engine"></span>
     </form>`;
 
@@ -92,6 +152,14 @@ export function mountSearch(root, { autofocus = true } = {}) {
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const resolved = resolveSearch(input.value);
+    if (resolved.local) {
+      // A 'keep' return leaves the field alone — the calc handler uses it to
+      // show the answer where the expression was.
+      const keep = onLocal ? onLocal(resolved.local, input) : undefined;
+      if (keep !== 'keep') input.value = '';
+      paint();
+      return;
+    }
     if (!resolved.url) return;
     // A new tab, so a running timer and any playing station survive the search.
     // This is a user gesture, so popup blockers leave it alone.

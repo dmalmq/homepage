@@ -37,6 +37,7 @@
   <div id="app" class="app" hidden>
 
     <header class="topbar">
+      <h1 class="visually-hidden">Homepage</h1>
       <div class="topbar-left">
         <p id="date" class="topbar-date"></p>
         <p id="weather" class="topbar-weather"></p>
@@ -97,7 +98,7 @@
     </nav>
 
     <!-- One floating panel; the dock swaps what's inside it. -->
-    <section id="panel" class="panel" hidden aria-live="polite">
+    <section id="panel" class="panel" hidden role="region" aria-labelledby="panel-title">
       <header class="panel-head">
         <h2 id="panel-title"></h2>
         <button type="button" id="panel-close" class="panel-close" aria-label="Close">
@@ -111,7 +112,7 @@
     </section>
 
     <div id="player" class="player" hidden></div>
-    <div id="keys" class="keys" hidden></div>
+    <dialog id="keys" class="keys" aria-label="Keyboard shortcuts"></dialog>
 
     <!-- Settings -->
     <dialog id="settings" class="settings">
@@ -134,6 +135,15 @@
             <label>End sound<select id="sound-select"></select></label>
             <button type="button" id="sound-preview" class="btn">Play it</button>
           </div>
+          <label class="field-check">
+            <input id="auto-breaks" type="checkbox" />
+            Start breaks automatically when a focus session ends
+          </label>
+          <label class="field-check">
+            <input id="notify-toggle" type="checkbox" />
+            Show a system notification when a session ends
+          </label>
+          <p id="notify-note" class="field-note"></p>
         </fieldset>
 
         <fieldset class="field">

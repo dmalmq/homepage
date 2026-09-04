@@ -3,13 +3,13 @@
 
 import { api } from './api.js';
 import {
-  state, initializeState, initializeCachedState, render, pullState, subscribe,
+  state, initializeState, initializeCachedState, render, commit, pullState, subscribe,
   subscribeSync, syncStatus, retrySyncNow, setUnauthedHandler, ensureDay,
 } from './store.js';
 import { startThemeClock, applyTheme } from './theme.js';
 import { mountTimer } from './timer-panel.js';
-import { sessionsToday, timer, reset as resetTimer, reconcileTimer } from './pomodoro.js';
-import { mountTasks } from './tasks.js';
+import { sessionsToday, timer, reset as resetTimer, reconcileTimer, startCustom } from './pomodoro.js';
+import { mountTasks, addTask } from './tasks.js';
 import { mountNotes } from './notes.js';
 import { mountFavorites } from './favorites.js';
 import { mountStations, hidePlayer } from './stations.js';
@@ -99,7 +99,7 @@ function wireDismiss() {
     const t = e.target;
     if (!(t instanceof Node)) return;
     if (document.querySelector('.settings[open]')) return;
-    if ($('keys') && !$('keys').hidden) return;
+    if ($('keys') && $('keys').open) return;
 
     if (openPanel) {
       const inPanel = $('panel').contains(t);
@@ -114,7 +114,6 @@ function wireDismiss() {
   });
 }
 
-// ---------- Current task line ----------
 function wireCurrentTask() {
   const el = $('current-task');
   // Clicking it opens the queue, which is the only place to change it now.
@@ -122,9 +121,26 @@ function wireCurrentTask() {
 
   const paint = () => {
     const task = state.tasks.find(t => t.id === state.currentTaskId);
-    el.textContent = task ? task.text : 'No task selected';
-    el.classList.toggle('is-empty', !task);
-    el.title = task ? 'Open the queue' : 'Pick something to work on';
+    if (!task) {
+      el.textContent = 'No task selected';
+      el.classList.add('is-empty');
+      // The line truncates, so the title has to carry the text rather than a
+      // hint about clicking; the hover treatment already says it is a control.
+      el.title = 'Pick something to work on';
+    } else if (Number(task.est)) {
+      const spent = Math.min(Number(task.spent) || 0, Number(task.est));
+      el.textContent = `${task.text} · ${spent}/${task.est}`;
+      el.title = `${task.text} — ${spent} of ${task.est} sessions banked`;
+      el.classList.remove('is-empty');
+    } else {
+      el.textContent = task.text;
+      el.classList.remove('is-empty');
+      el.title = task.text;
+    }
+    // One voice above the timer: when both the day line and a task are set,
+    // tighten the stack and quiet the intention down to a whisper.
+    const copy = el.closest('.stage-copy');
+    if (copy) copy.classList.toggle('is-combined', !!task && !!(state.intention || '').trim());
   };
   paint();
   subscribe(paint);
@@ -169,6 +185,34 @@ function mountDate(el) {
   setInterval(paint, 60_000);
 }
 
+// Local search commands: `t`/`tl` add tasks, `n` appends a note, `timer 25`
+// starts a session, and a bare calculation answers inline. All run without a
+// network request; anything else falls through to the web search.
+function handleSearchCommand(cmd, input) {
+  if (cmd.kind === 'task') {
+    addTask(cmd.text, cmd.list);
+    showPanel('tasks');
+    return undefined;
+  }
+  if (cmd.kind === 'note') {
+    state.notes = state.notes ? state.notes.replace(/\s+$/, '') + '\n' + cmd.text : cmd.text;
+    commit();
+    showPanel('notes');
+    return undefined;
+  }
+  if (cmd.kind === 'timer') {
+    startCustom(cmd.mode, cmd.minutes);
+    setStage('pomodoro');
+    return undefined;
+  }
+  if (cmd.kind === 'calc') {
+    input.value = `${cmd.expr} = ${cmd.value}`;
+    input.select();
+    return 'keep';
+  }
+  return undefined;
+}
+
 function mountAll() {
   mountDate($('date'));
   quoteApi = mountQuote($('quote'));
@@ -176,7 +220,7 @@ function mountAll() {
   mountClock($('clock-root'));
   mountIntention($('intention'));
   mountTimer($('timer-root'));
-  searchApi = mountSearch($('search-root'));
+  searchApi = mountSearch($('search-root'), { onLocal: handleSearchCommand });
   mountFavorites($('favorites-root'));
   mountTasks($('panel-tasks'));
   mountNotes($('panel-notes'));

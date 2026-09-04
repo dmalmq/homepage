@@ -32,7 +32,12 @@ export function mountQuote(el) {
   const paint = () => {
     const show = state.showQuote !== false;
     el.hidden = !show;
-    if (show) el.textContent = `“${quoteForToday()}”`;
+    // The corner clamps to two lines, so the tooltip carries the full line.
+    if (show) {
+      const line = `“${quoteForToday()}”`;
+      el.textContent = line;
+      el.title = line;
+    }
   };
   paint();
   subscribe(paint);

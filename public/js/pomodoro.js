@@ -42,7 +42,8 @@ function stopTicking() {
   timer.running = false;
   clearInterval(handle);
   handle = null;
-  restoreTitle();
+  updateTitle();
+  paintFocus();
 }
 
 export function setMode(mode, { resetTime = true } = {}) {
@@ -51,6 +52,8 @@ export function setMode(mode, { resetTime = true } = {}) {
     timer.total = durationFor(mode);
     timer.remaining = timer.total;
   }
+  updateTitle();
+  paintFocus();
   emitTick();
 }
 
@@ -62,7 +65,18 @@ export function start() {
   endTime = Date.now() + timer.remaining * 1000;
   handle = setInterval(tick, 250);
   tick();
+  paintFocus();
   emitTick();
+}
+
+/** Start a one-shot timer from the search box without touching saved durations. */
+export function startCustom(mode, minutes) {
+  const mins = Math.min(180, Math.max(1, Math.round(Number(minutes) || 25)));
+  if (timer.running) pause();
+  timer.mode = mode === 'short' || mode === 'long' ? mode : 'pomodoro';
+  timer.total = mins * 60;
+  timer.remaining = timer.total;
+  start();
 }
 
 /** Create/resume Web Audio inside the click or key gesture that starts a timer,
@@ -111,21 +125,33 @@ function complete() {
     state.completedPomodoros = (state.completedPomodoros || 0) + 1;
     state.sessions.push({ t: Date.now(), minutes: Math.round(timer.total / 60) });
 
+    // An estimate takes more than one session: count sessions against it and
+    // only tick the task off once enough are banked.
+    let finishedText = '';
     if (state.currentTaskId) {
       const task = state.tasks.find(t => t.id === state.currentTaskId);
       if (task && !task.done) {
-        task.done = true;
-        state.doneToday = (state.doneToday || 0) + 1;
+        task.spent = (Number(task.spent) || 0) + 1;
+        finishedText = task.text;
+        const est = Number(task.est) || 0;
+        if (!est || task.spent >= est) {
+          task.done = true;
+          state.doneToday = (state.doneToday || 0) + 1;
+        }
       }
-      state.currentTaskId = nextTaskId();
+      if (!task || task.done) state.currentTaskId = nextTaskId();
     }
 
     const interval = Math.max(2, Number(state.durations.interval) || 4);
     setMode(state.completedPomodoros % interval === 0 ? 'long' : 'short');
     commit();
+    notify('Focus done — take a break', finishedText);
+    if (state.autoStartBreaks) start();
   } else {
     setMode('pomodoro');
     render();
+    const next = state.tasks.find(t => t.id === state.currentTaskId);
+    notify('Break over — back to it', next && !next.done ? next.text : '');
   }
 }
 
@@ -144,11 +170,44 @@ export function sessionsToday() {
 // ---------- Tab title ----------
 const BASE_TITLE = 'Homepage';
 function updateTitle() {
-  document.title = timer.running
-    ? `${formatClock(timer.remaining)} · ${timer.mode === 'pomodoro' ? 'focus' : 'break'}`
-    : BASE_TITLE;
+  if (typeof document === 'undefined') return;
+  if (timer.running) {
+    document.title = `${formatClock(timer.remaining)} · ${timer.mode === 'pomodoro' ? 'focus' : 'break'}`;
+  } else if (timer.remaining > 0 && timer.remaining < timer.total) {
+    document.title = `${formatClock(timer.remaining)} · paused`;
+  } else {
+    document.title = BASE_TITLE;
+  }
 }
-function restoreTitle() { document.title = BASE_TITLE; }
+function restoreTitle() {
+  if (typeof document === 'undefined') return;
+  document.title = BASE_TITLE;
+}
+
+// While a focus session runs the page steps back: search, favorites and the
+// quote dim so the timer is the only thing shouting.
+function paintFocus() {
+  try {
+    document.getElementById('app')?.classList.toggle('is-focusing',
+      timer.running && timer.mode === 'pomodoro');
+  } catch { /* non-DOM (tests) */ }
+}
+
+// ---------- Completion notification ----------
+// Opt-in via settings; the permission prompt only ever fires from that toggle.
+export function requestNotificationPermission() {
+  try {
+    if (typeof Notification === 'undefined') return Promise.resolve('unsupported');
+    return Notification.requestPermission();
+  } catch { return Promise.resolve('denied'); }
+}
+function notify(title, body) {
+  try {
+    if (!state.notify) return;
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    new Notification(title, body ? { body } : undefined);
+  } catch { /* a failed ping must never break the timer handoff */ }
+}
 
 // ---------- Sound ----------
 export const SOUNDS = [

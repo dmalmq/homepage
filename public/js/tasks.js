@@ -14,14 +14,15 @@ export function mountTasks(root) {
       <h3 class="task-heading">Today</h3>
       <ul class="task-list" data-list="today"></ul>
       <input class="task-input" data-list="today" type="text" maxlength="120"
-             placeholder="Add a task" aria-label="Add a task" />
+             placeholder="Add a task — Draft report 2p estimates two sessions" aria-label="Add a task" />
     </section>
     <section class="task-section">
       <h3 class="task-heading">Later</h3>
       <ul class="task-list" data-list="later"></ul>
       <input class="task-input" data-list="later" type="text" maxlength="120"
              placeholder="Park for later" aria-label="Park for later" />
-    </section>`;
+    </section>
+    <p class="task-hint">Click to focus, double-click to rename. End with 2p to estimate sessions.</p>`;
 
   todayList = root.querySelector('[data-list="today"].task-list');
   laterList = root.querySelector('[data-list="later"].task-list');
@@ -39,14 +40,26 @@ export function mountTasks(root) {
   subscribe(renderTasks);
 }
 
+/** A trailing `2p` sets the pomodoro estimate: `Draft report 2p` → 2 sessions. */
+export function parseEstimate(raw) {
+  const v = String(raw || '').trim();
+  const m = v.match(/^(.*?)\s+(\d+)\s*p$/i);
+  if (!m || !m[1].trim()) return { text: v.slice(0, 120), est: 0 };
+  const est = Math.min(12, Math.max(1, parseInt(m[2], 10)));
+  return { text: m[1].trim().slice(0, 120), est: Number.isNaN(est) ? 0 : est };
+}
+
 export function addTask(text, list = 'today') {
   const v = String(text || '').trim();
   if (!v) return;
   if (list === 'later') {
     if (!Array.isArray(state.later)) state.later = [];
-    state.later.push({ id: uid(), text: v.slice(0, 120) });
+    const { text: clean, est } = parseEstimate(v);
+    state.later.push(est ? { id: uid(), text: clean, est } : { id: uid(), text: clean });
   } else {
-    const task = { id: uid(), text: v.slice(0, 120), done: false };
+    const { text: clean, est } = parseEstimate(v);
+    const task = { id: uid(), text: clean, done: false };
+    if (est) { task.est = est; task.spent = 0; }
     state.tasks.push(task);
     if (!state.currentTaskId) state.currentTaskId = task.id;
   }
@@ -56,6 +69,7 @@ export function addTask(text, list = 'today') {
 function markDone(task, done) {
   if (!!task.done === done) return;
   task.done = done;
+  if (!done) task.spent = 0;
   state.doneToday = Math.max(0, (state.doneToday || 0) + (done ? 1 : -1));
   if (done && task.id === state.currentTaskId) state.currentTaskId = nextTaskId();
   commit();
@@ -77,7 +91,9 @@ function toLater(id) {
   if (i < 0) return;
   const [task] = state.tasks.splice(i, 1);
   if (!Array.isArray(state.later)) state.later = [];
-  state.later.push({ id: task.id, text: task.text });
+  const parked = { id: task.id, text: task.text };
+  if (task.est) { parked.est = task.est; parked.spent = task.spent || 0; }
+  state.later.push(parked);
   if (state.currentTaskId === id) state.currentTaskId = nextTaskId();
   commit();
 }
@@ -86,7 +102,9 @@ function toToday(id) {
   const i = (state.later || []).findIndex(t => t.id === id);
   if (i < 0) return;
   const [task] = state.later.splice(i, 1);
-  state.tasks.push({ id: task.id, text: task.text, done: false });
+  const back = { id: task.id, text: task.text, done: false };
+  if (task.est) { back.est = task.est; back.spent = task.spent || 0; }
+  state.tasks.push(back);
   if (!state.currentTaskId) state.currentTaskId = task.id;
   commit();
 }
@@ -131,7 +149,7 @@ function paintList(el, items, list) {
     text.className = 'task-text';
     text.textContent = task.text;
     if (list === 'today') {
-      text.title = 'Click to focus on this, double-click to rename';
+      text.title = task.text;
       text.addEventListener('click', () => {
         if (text.isContentEditable) return;
         state.currentTaskId = task.id;
@@ -139,10 +157,15 @@ function paintList(el, items, list) {
       });
       text.addEventListener('dblclick', () => beginEdit(text, task, list));
     } else {
-      text.title = 'Double-click to rename';
+      text.title = task.text;
       text.addEventListener('dblclick', () => beginEdit(text, task, list));
     }
     li.append(text);
+    // Estimate badge, today only: sessions spent of those estimated. Click
+    // cycles 1 → 2 → 3 → 4 → none so it stays one quiet control.
+    if (list === 'today' && !task.done) {
+      li.append(estButton(task));
+    }
 
     const actions = document.createElement('div');
     actions.className = 'task-actions';
@@ -164,6 +187,27 @@ function paintList(el, items, list) {
     li.append(actions);
     el.append(li);
   });
+}
+
+function estButton(task) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'task-est' + (task.est ? '' : ' is-off');
+  const spent = Number(task.spent) || 0;
+  b.textContent = task.est ? `${Math.min(spent, task.est)}/${task.est}p` : '+p';
+  b.title = task.est
+    ? `${spent} of ${task.est} sessions banked — click to change the estimate`
+    : 'Estimate sessions — click to set';
+  b.setAttribute('aria-label', b.title);
+  b.addEventListener('click', () => {
+    // none → 1 → 2 → 3 → 4 → none. Dropping the estimate keeps banked
+    // sessions on the record but stops gating completion on them.
+    const next = task.est ? (task.est >= 4 ? 0 : task.est + 1) : 1;
+    if (next) { task.est = next; task.spent = Math.min(spent, next); }
+    else { delete task.est; }
+    commit();
+  });
+  return b;
 }
 
 function actionButton(label, glyph, onClick) {

@@ -51,6 +51,8 @@ function clock(ms) {
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 }
 
+const REPEAT_MODES = [['off', 'Repeat off'], ['context', 'Repeat all'], ['track', 'Repeat one']];
+
 function pipSupported() {
   return 'documentPictureInPicture' in window;
 }
@@ -139,8 +141,7 @@ export function mountStage(stage) {
   });
   repeat.addEventListener('click', () => {
     const s = sp.getState();
-    const modes = ['off', 'context', 'track'];
-    sp.setRepeat(modes[(((s && s.repeat) || 0) + 1) % 3]);
+    sp.setRepeat(REPEAT_MODES[(((s && s.repeat) || 0) + 1) % 3][0]);
   });
   volRange.addEventListener('input', () => {
     sp.setVolume(Number(volRange.value));
@@ -181,8 +182,15 @@ export function mountStage(stage) {
 
     shuffle.classList.toggle('is-on', Boolean(s.shuffle));
     shuffle.setAttribute('aria-pressed', String(Boolean(s.shuffle)));
+
+    // Off, all and one differed only by a colour step and a CSS ::after '1',
+    // so the mode had no carrier outside the pixels. The name says it now.
+    const [repeatMode, repeatName] = REPEAT_MODES[s.repeat] || REPEAT_MODES[0];
     repeat.classList.toggle('is-on', s.repeat > 0);
-    repeat.dataset.mode = ['off', 'context', 'track'][s.repeat] || 'off';
+    repeat.dataset.mode = repeatMode;
+    repeat.setAttribute('aria-pressed', String(s.repeat > 0));
+    repeat.title = repeatName;
+    repeat.setAttribute('aria-label', repeatName);
 
     // The state object says what this context actually allows, so the buttons
     // can be honest instead of guessing.

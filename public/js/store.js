@@ -8,6 +8,8 @@ import { api } from './api.js';
 
 export const DEFAULTS = {
   durations: { pomodoro: 25, short: 5, long: 15, interval: 4 },
+  autoStartBreaks: false,          // start the break when a focus session ends
+  notify: false,                   // system notification when an interval ends
   tasks: [],
   currentTaskId: null,
   notes: '',
@@ -214,7 +216,11 @@ export function applyDayRollover(s, today = todayKey()) {
   if (s.carryTasks !== false) {
     s.tasks = undone;
   } else {
-    for (const t of undone) s.later.push({ id: t.id, text: t.text });
+    for (const t of undone) {
+      const parked = { id: t.id, text: t.text };
+      if (t.est) { parked.est = t.est; parked.spent = t.spent || 0; }
+      s.later.push(parked);
+    }
     s.tasks = [];
   }
 

@@ -97,7 +97,10 @@ function renderChips() {
     const chip = document.createElement('button');
     chip.type = 'button';
     chip.className = 'station';
+    // The ▸/■ marker is a CSS ::before and the colour swap is invisible to
+    // assistive tech, so the chip announced the same thing either way.
     chip.classList.toggle('is-playing', station.id === playingId);
+    chip.setAttribute('aria-pressed', String(station.id === playingId));
     chip.dataset.kind = station.kind || (toEmbed(station.url)?.kind ?? '');
     chip.textContent = station.label || station.url;
     chip.addEventListener('click', () => {
@@ -320,12 +323,25 @@ export function mountStationsEditor(root) {
       url.value = station.url || '';
       url.placeholder = 'Spotify or YouTube link';
       url.setAttribute('aria-label', 'Station link');
-      url.setAttribute('aria-invalid', String(Boolean(station.url) && !toEmbed(station.url)));
+
+      // The border colour was the only cue, and it named no way out of it.
+      const err = document.createElement('p');
+      err.className = 'edit-error';
+      err.id = `station-err-${station.id}`;
+      err.textContent = 'Use a Spotify or YouTube link.';
+      url.setAttribute('aria-describedby', err.id);
+
+      const setInvalid = (bad) => {
+        row.classList.toggle('is-invalid', bad);
+        url.setAttribute('aria-invalid', String(bad));
+        err.hidden = !bad;
+      };
+      setInvalid(Boolean(station.url) && !toEmbed(station.url));
+
       url.addEventListener('change', () => {
         const next = url.value.trim();
         const embed = toEmbed(next);
-        row.classList.toggle('is-invalid', Boolean(next) && !embed);
-        url.setAttribute('aria-invalid', String(Boolean(next) && !embed));
+        setInvalid(Boolean(next) && !embed);
         if (next && !embed) return;
         station.url = next;
         station.kind = embed?.kind || '';
@@ -339,7 +355,6 @@ export function mountStationsEditor(root) {
           commit();
         }
       });
-      row.classList.toggle('is-invalid', Boolean(station.url) && !toEmbed(station.url));
 
       const remove = document.createElement('button');
       remove.type = 'button';
@@ -357,7 +372,7 @@ export function mountStationsEditor(root) {
         paint();
       });
 
-      row.append(label, url, remove);
+      row.append(label, url, remove, err);
       root.append(row);
     };
 

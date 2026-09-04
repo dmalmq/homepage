@@ -36,15 +36,18 @@ export function wireKeys({
   focusSearch,
   blurSearch,
 }) {
+  // A real <dialog>, so focus moves in on open, returns to where it was on
+  // close, and the page behind it goes inert — none of which a div with
+  // role="dialog" was doing. The element carries the label now.
   const root = document.getElementById('keys');
   root.innerHTML = `
-    <div class="keys-card" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="keys-card">
       <div class="keys-list">${keysMarkup()}</div>
     </div>`;
 
-  const hideKeys = () => { root.hidden = true; };
-  const showKeys = () => { root.hidden = false; };
-  const keysOpen = () => !root.hidden;
+  const hideKeys = () => { if (root.open) root.close(); };
+  const showKeys = () => { if (!root.open) root.showModal(); };
+  const keysOpen = () => root.open;
 
   root.addEventListener('click', (e) => {
     if (e.target === root) hideKeys();

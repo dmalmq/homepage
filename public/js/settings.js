@@ -1,5 +1,5 @@
 import { state, commit, subscribe } from './store.js';
-import { SOUNDS, playSound, syncToDurations } from './pomodoro.js';
+import { SOUNDS, playSound, syncToDurations, requestNotificationPermission } from './pomodoro.js';
 import { ENGINES, BANGS } from './search.js';
 import { mountFavoritesEditor } from './favorites.js';
 import { mountStationsEditor } from './stations.js';
@@ -59,6 +59,28 @@ export function mountSettings({ onSearchChange = () => {}, onQuoteChange = () =>
 
   $('sound-select').addEventListener('change', (e) => { state.sound = e.target.value; commit(); });
   $('sound-preview').addEventListener('click', () => playSound($('sound-select').value));
+  $('auto-breaks').addEventListener('change', (e) => {
+    state.autoStartBreaks = e.target.checked;
+    commit();
+  });
+  $('notify-toggle').addEventListener('change', async (e) => {
+    if (!e.target.checked) {
+      state.notify = false;
+      commit();
+      return;
+    }
+    const perm = await requestNotificationPermission();
+    if (perm === 'granted') {
+      state.notify = true;
+      $('notify-note').textContent = '';
+    } else {
+      e.target.checked = false;
+      $('notify-note').textContent = perm === 'unsupported'
+        ? 'This browser does not support notifications.'
+        : 'Permission was not granted — allow notifications for this site in the browser, then try again.';
+    }
+    commit();
+  });
 
   // ---------- Appearance ----------
   $('ground-mode').addEventListener('change', (e) => {
@@ -124,7 +146,9 @@ export function mountSettings({ onSearchChange = () => {}, onQuoteChange = () =>
     'A prefix sends the query elsewhere: gh homepage, yt lo-fi, w stockholm. ' +
     'Short ones need a bang (' +
     BANGS.filter(b => !b.bare).map(b => '!' + b.id).join(' ') +
-    '). The box shows where it will go.';
+    '). The box shows where it will go. ' +
+    'Commands stay on this page: t task adds to Today, tl task parks for Later, ' +
+    'n line appends a note, timer 25 starts a 25-minute focus, and 2+2 answers inline.';
 
   // ---------- Tasks ----------
   $('carry-tasks').addEventListener('change', (e) => {
@@ -243,6 +267,8 @@ export function mountSettings({ onSearchChange = () => {}, onQuoteChange = () =>
     $('dur-long').value = state.durations.long;
     $('dur-interval').value = state.durations.interval;
     $('sound-select').value = state.sound || 'chime';
+    $('auto-breaks').checked = !!state.autoStartBreaks;
+    $('notify-toggle').checked = !!state.notify;
 
     $('ground-mode').value = state.ground.mode || 'auto';
     $('show-quote').checked = state.showQuote !== false;

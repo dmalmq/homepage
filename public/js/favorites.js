@@ -59,7 +59,7 @@ function renderFavorites() {
   if (favorites.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'fav-empty';
-    empty.textContent = 'No sites saved yet. Add them in settings.';
+    empty.textContent = 'No sites yet — add up to 8 in Settings. Keys 1–8 open them.';
     gridEl.append(empty);
     return;
   }
@@ -69,11 +69,13 @@ function renderFavorites() {
     a.className = 'fav';
     a.href = normalizeUrl(fav.url);
     a.title = `${i + 1} · ${fav.url}`;
+    // Exposes the 1–8 shortcut to assistive tech; the visible badge next to
+    // the label shows it to everyone else.
+    a.setAttribute('aria-keyshortcuts', String(i + 1));
     // New tab for the same reason as search. noopener also stops the opened
     // page reaching back through window.opener.
     a.target = '_blank';
     a.rel = 'noopener noreferrer';
-
     const mark = document.createElement('span');
     mark.className = 'fav-mark';
 
@@ -92,7 +94,12 @@ function renderFavorites() {
     label.className = 'fav-label';
     label.textContent = fav.label || hostOf(fav.url);
 
-    a.append(mark, label);
+    const key = document.createElement('span');
+    key.className = 'fav-key';
+    key.textContent = String(i + 1);
+    key.setAttribute('aria-hidden', 'true');
+
+    a.append(mark, label, key);
     gridEl.append(a);
   });
 }
@@ -115,7 +122,6 @@ export function mountFavoritesEditor(root) {
     const appendRow = (fav, isDraft = false) => {
       const row = document.createElement('div');
       row.className = 'edit-row';
-      row.classList.toggle('is-invalid', Boolean(fav.url) && !isSafeFavorite(fav));
 
       const label = document.createElement('input');
       label.type = 'text';
@@ -132,13 +138,27 @@ export function mountFavoritesEditor(root) {
       url.value = fav.url || '';
       url.placeholder = 'example.com';
       url.setAttribute('aria-label', 'Site address');
-      url.setAttribute('aria-invalid', String(Boolean(fav.url) && !isSafeFavorite(fav)));
+
+      // A red border on its own says something is wrong but not what, and the
+      // colour is the only carrier. The message does both jobs.
+      const err = document.createElement('p');
+      err.className = 'edit-error';
+      err.id = `fav-err-${fav.id}`;
+      err.textContent = 'Use a web address, like example.com.';
+      url.setAttribute('aria-describedby', err.id);
+
+      const setInvalid = (bad) => {
+        row.classList.toggle('is-invalid', bad);
+        url.setAttribute('aria-invalid', String(bad));
+        err.hidden = !bad;
+      };
+      setInvalid(Boolean(fav.url) && !isSafeFavorite(fav));
+
       url.addEventListener('change', () => {
         const next = url.value.trim();
         const candidate = { ...fav, url: next };
         const valid = !next || isSafeFavorite(candidate);
-        row.classList.toggle('is-invalid', !valid);
-        url.setAttribute('aria-invalid', String(!valid));
+        setInvalid(!valid);
         if (!valid) return;
         fav.url = next;
         if (isDraft) {
@@ -167,7 +187,7 @@ export function mountFavoritesEditor(root) {
         paint();
       });
 
-      row.append(label, url, remove);
+      row.append(label, url, remove, err);
       root.append(row);
       return label;
     };
