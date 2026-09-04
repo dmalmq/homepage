@@ -747,12 +747,15 @@ html[data-wallpaper] {
 }
 
 /* Top layer, so it clears the panel's own overflow: auto instead of being
-   clipped by it. Width is fixed here because tasks.js positions from it. */
+   clipped by it. Width is fixed here because tasks.js reads it back to place
+   the menu; padding is 6px because the 3px-offset focus ring needs 5px before
+   it starts crossing the card's own border. */
 .task-menu {
   position: fixed;
   width: 172px;
+  max-width: calc(100vw - 16px);
   margin: 0;
-  padding: 4px;
+  padding: 6px;
   color: var(--ink);
   background: rgb(18 12 34 / 0.96);
   border: 1px solid var(--glass-line);
@@ -762,8 +765,14 @@ html[data-wallpaper] {
   box-shadow: 0 16px 40px rgb(0 0 0 / 0.45);
 }
 .task-menu:popover-open { animation: menuIn 0.12s var(--swift); }
+/* Flipped above its row, so the 4px it travels has to come from below it. */
+.task-menu.is-above:popover-open { animation-name: menuInUp; }
 @keyframes menuIn {
   from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes menuInUp {
+  from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 .task-menu button {
@@ -780,7 +789,12 @@ html[data-wallpaper] {
 .task-menu button:disabled { opacity: 0.35; cursor: default; }
 .task-menu .is-danger { color: var(--ink-danger); }
 .task-menu .is-danger:hover:not(:disabled) { color: var(--ink-danger); background: rgb(255 201 209 / 0.12); }
-.task-menu hr { height: 1px; margin: 4px 8px; border: 0; background: var(--glass-line); }
+.task-menu hr { height: 1px; margin: 4px 10px; border: 0; background: var(--glass-line); }
+/* Stacked rows cannot use the invisible 44px pseudo-target — the targets would
+   overlap — so on touch the rows themselves carry the comfortable height. */
+@media (hover: none) {
+  .task-menu button { min-height: 44px; }
+}
 
 .task-input {
   width: 100%;

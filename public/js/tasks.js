@@ -276,6 +276,7 @@ function rowMenu(task, i, list, count) {
   menu.className = 'task-menu';
   menu.popover = 'auto';
   menu.id = `task-menu-${task.id}`;
+  menu.setAttribute('role', 'menu');
   more.setAttribute('popovertarget', menu.id);
 
   const item = (label, onClick, { danger = false, disabled = false } = {}) => {
@@ -283,6 +284,10 @@ function rowMenu(task, i, list, count) {
     b.type = 'button';
     b.textContent = label;
     b.disabled = disabled;
+    // The button announces itself as a menu item and stays out of the tab
+    // order: arrow keys move inside a menu, Tab leaves it.
+    b.setAttribute('role', 'menuitem');
+    b.tabIndex = -1;
     if (danger) b.className = 'is-danger';
     b.addEventListener('click', () => {
       menu.hidePopover();
@@ -299,7 +304,7 @@ function rowMenu(task, i, list, count) {
     list === 'today'
       ? item('Move to Later', () => toLater(task.id), { disabled: !!task.done })
       : item('Move to Today', () => toToday(task.id)),
-    divider(),
+    document.createElement('hr'),
     item('Delete', () => (list === 'later' ? removeLater(task.id) : removeToday(task.id)), { danger: true }),
   );
 
@@ -310,30 +315,73 @@ function rowMenu(task, i, list, count) {
   return [more, menu];
 }
 
-function divider() {
-  const hr = document.createElement('hr');
-  hr.setAttribute('role', 'presentation');
-  return hr;
+// Breathing room from the viewport edge, and the gap between button and menu.
+const EDGE = 8, GAP = 6;
+
+/** How tall a menu is, measured off a hidden clone rather than written down:
+ *  the flip decision needs the real height, and a constant drifts the moment
+ *  the item height changes with the input method or an action is added. One
+ *  measurement serves every row — they are the same menu — and zoom, which
+ *  can change it, arrives as a resize. */
+let menuHeight = 0;
+function naturalHeight(menu) {
+  const probe = menu.cloneNode(true);
+  probe.removeAttribute('popover');
+  probe.removeAttribute('id');
+  probe.style.cssText = 'position:fixed;top:0;left:-9999px;max-height:none;visibility:hidden';
+  // Beside the original rather than on the body, so it inherits the same type,
+  // and being fixed and hidden keeps it out of the row's layout.
+  menu.parentNode.append(probe);
+  const h = probe.getBoundingClientRect().height;
+  probe.remove();
+  return h;
 }
 
 /** Popovers live in the top layer, so they clear the panel's own overflow —
- *  but nothing positions them. Size is known from CSS, so this can run
- *  synchronously in beforetoggle and never paint at the wrong spot. */
+ *  but nothing positions them. The menu hangs off the button's right edge and
+ *  drops down, flipping to sit above the row only when it does not fit below —
+ *  the task panel is bottom-anchored, so "whichever side has more room" would
+ *  send almost every menu upward. max-height keeps whichever side it picks
+ *  inside the viewport. The list scrolls and the window resizes underneath an
+ *  open menu, so placement re-runs for as long as it is open. */
 function placeOnOpen(menu, anchor) {
-  const W = 172, H = 150;
-  menu.addEventListener('beforetoggle', (e) => {
-    anchor.setAttribute('aria-expanded', String(e.newState === 'open'));
-    if (e.newState !== 'open') return;
+  // Capture, so the scrolling panel body is heard from and not just the window.
+  const listen = (on) => {
+    if (on) { addEventListener('scroll', place, true); addEventListener('resize', remeasure); }
+    else { removeEventListener('scroll', place, true); removeEventListener('resize', remeasure); }
+  };
+
+  const place = () => {
+    // A background pull can rebuild the row under an open menu; the popover is
+    // then removed without a close event, so the listeners retire themselves.
+    if (!anchor.isConnected) return listen(false);
     const r = anchor.getBoundingClientRect();
-    const left = Math.max(8, Math.min(r.right - W, innerWidth - W - 8));
-    const below = r.bottom + 6;
-    const top = below + H > innerHeight - 8 ? Math.max(8, r.top - H - 6) : below;
-    menu.style.left = `${left}px`;
-    menu.style.top = `${top}px`;
+    // Width is fixed in CSS. Read it back instead of repeating the number.
+    const w = parseFloat(getComputedStyle(menu).width) || 0;
+    menu.style.left = `${Math.max(EDGE, Math.min(r.right - w, innerWidth - w - EDGE))}px`;
+
+    if (!menuHeight) menuHeight = naturalHeight(menu);
+    const below = innerHeight - EDGE - (r.bottom + GAP);
+    const above = r.top - GAP - EDGE;
+    const flip = below < menuHeight && above > below;
+    menu.classList.toggle('is-above', flip);
+    menu.style.maxHeight = `${Math.max(flip ? above : below, 0)}px`;
+    menu.style.top = flip ? 'auto' : `${r.bottom + GAP}px`;
+    menu.style.bottom = flip ? `${innerHeight - r.top + GAP}px` : 'auto';
+  };
+
+  const remeasure = () => { menuHeight = 0; place(); };
+
+  menu.addEventListener('beforetoggle', (e) => {
+    const open = e.newState === 'open';
+    anchor.setAttribute('aria-expanded', String(open));
+    if (open) place();
+    listen(open);
   });
 
-  // Arrow keys are what a menu is expected to answer to.
+  // Arrow keys are what a menu is expected to answer to; Tab leaves it.
   menu.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab') return menu.hidePopover();
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Home' && e.key !== 'End') return;
     const items = [...menu.querySelectorAll('button:not(:disabled)')];
     if (!items.length) return;
