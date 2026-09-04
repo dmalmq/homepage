@@ -57,8 +57,7 @@ This page opens on every new tab, so two rules govern changes:
 
 - **Nothing fetches on load that isn't needed to read the page.** The gradient is
   CSS, the font is local, embeds don't exist in the DOM until a station is clicked,
-  favicons are off by default, and the quote list is bundled rather than fetched.
-  Adding a blocking third-party request is a regression.
+  favicons are off by default. Adding a blocking third-party request is a regression.
 - **The colour field is the only indulgence.** The timer stands in it; everything
   else is white type and translucent glass, deliberately quiet so nothing competes
   with the readout. Content that isn't the timer, search or favorites lives behind

@@ -134,3 +134,62 @@ test('day rollover carries estimates when parking tasks', () => {
   assert.equal(applyDayRollover(parked, '2026-09-03'), true);
   assert.deepEqual(parked.later, [{ id: 'a', text: 'Big one', est: 3, spent: 1 }]);
 });
+
+test('recap week survives a DST transition', async () => {
+  const { recapStats, lastSevenMidnights } = await import('../public/js/recap.js');
+  const prevTZ = process.env.TZ;
+  process.env.TZ = 'Europe/Stockholm';
+  try {
+    // Fall back: 2026-10-25 is 25 hours long, so fixed 24h subtraction both
+    // drops the oldest day from the window and misses the streak lookup.
+    const now = new Date(2026, 9, 26, 12, 0, 0).getTime();
+    const keys = lastSevenMidnights(now);
+    assert.equal(keys.length, 7);
+    assert.equal(new Set(keys).size, 7);
+    for (let i = 1; i < keys.length; i++) {
+      const next = new Date(keys[i - 1]);
+      next.setDate(next.getDate() + 1);
+      const b = new Date(keys[i]);
+      assert.equal(b.getFullYear(), next.getFullYear());
+      assert.equal(b.getMonth(), next.getMonth());
+      assert.equal(b.getDate(), next.getDate());
+    }
+    const sessions = keys.map(k => ({ t: k + 12 * 3_600_000, minutes: 25 }));
+    const stats = recapStats(sessions, now);
+    assert.equal(stats.weekCount, 7);
+    assert.equal(stats.weekMinutes, 175);
+    assert.equal(stats.streak, 7);
+  } finally {
+    if (prevTZ === undefined) delete process.env.TZ;
+    else process.env.TZ = prevTZ;
+  }
+});
+
+test('search suggestions rank the Enter behavior first', async () => {
+  const { suggestSearch } = await import('../public/js/search.js');
+  assert.deepEqual(suggestSearch(''), []);
+  assert.deepEqual(suggestSearch('   '), []);
+
+  const task = suggestSearch('t Buy milk');
+  assert.equal(task[0].kind, 'command');
+  assert.equal(task[0].local?.list, 'today');
+  assert.ok(task.some(i => i.kind === 'engine'));
+
+  const yt = suggestSearch('yt lo-fi');
+  assert.equal(yt[0].kind, 'bang');
+  assert.ok(yt[0].url?.includes('youtube.com'));
+
+  // `g` is not a bare bang, so Enter stays a web search — but both
+  // g-bangs sit one arrow-press away as explicit picks.
+  const g = suggestSearch('g foo');
+  assert.equal(g[0].kind, 'engine');
+  assert.ok(g.some(i => i.kind === 'bang'));
+
+  const plain = suggestSearch('hello world');
+  assert.equal(plain.length, 1);
+  assert.equal(plain[0].kind, 'engine');
+
+  const calc = suggestSearch('2+2');
+  assert.equal(calc[0].kind, 'command');
+  assert.equal(calc[0].local?.value, '4');
+});

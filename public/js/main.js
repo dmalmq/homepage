@@ -8,20 +8,19 @@ import {
 } from './store.js';
 import { startThemeClock, applyTheme } from './theme.js';
 import { mountTimer } from './timer-panel.js';
-import { sessionsToday, timer, reset as resetTimer, reconcileTimer, startCustom } from './pomodoro.js';
+import { sessionsToday, timer, reset as resetTimer, reconcileTimer, startCustom, onComplete } from './pomodoro.js';
 import { mountTasks, addTask } from './tasks.js';
 import { mountNotes } from './notes.js';
 import { mountFavorites } from './favorites.js';
-import { mountStations, hidePlayer } from './stations.js';
+import { mountStations, hidePlayer, pause as pauseMusic } from './stations.js';
 import { mountWeather } from './weather.js';
 import { mountSearch } from './search.js';
-import { mountQuote } from './quote.js';
 import { mountSettings } from './settings.js';
 import { mountIntention } from './intention.js';
 import { mountRecap } from './recap.js';
 import { wireKeys } from './keys.js';
 import { mountStage, setStage } from './stage.js';
-import { mountClock } from './clock.js';
+import { mountTopbarClock } from './clock.js';
 import { mountWallpaper } from './wallpaper.js';
 
 const $ = (id) => document.getElementById(id);
@@ -33,7 +32,6 @@ const errEl = $('login-err');
 
 let mounted = false;
 let searchApi = null;
-let quoteApi = null;
 
 function showLogin() {
   appEl.hidden = true;
@@ -76,6 +74,11 @@ function hidePanel() {
   panel.classList.remove('panel--right');
   document.querySelectorAll('.dock-btn[data-panel]').forEach(b => b.classList.remove('is-active'));
   $('session-count').classList.remove('is-active');
+}
+// showPanel toggles, which is what the dock buttons want. Commands want
+// open-without-toggle: adding a second task must not close the queue.
+function ensurePanel(name) {
+  if (openPanel !== name) showPanel(name);
 }
 
 function wireDock() {
@@ -191,13 +194,13 @@ function mountDate(el) {
 function handleSearchCommand(cmd, input) {
   if (cmd.kind === 'task') {
     addTask(cmd.text, cmd.list);
-    showPanel('tasks');
+    ensurePanel('tasks');
     return undefined;
   }
   if (cmd.kind === 'note') {
     state.notes = state.notes ? state.notes.replace(/\s+$/, '') + '\n' + cmd.text : cmd.text;
     commit();
-    showPanel('notes');
+    ensurePanel('notes');
     return undefined;
   }
   if (cmd.kind === 'timer') {
@@ -215,11 +218,14 @@ function handleSearchCommand(cmd, input) {
 
 function mountAll() {
   mountDate($('date'));
-  quoteApi = mountQuote($('quote'));
+  mountTopbarClock($('topbar-clock'));
   mountStage();
-  mountClock($('clock-root'));
   mountIntention($('intention'));
   mountTimer($('timer-root'));
+  // The chime gets the room: controlled players pause in place, raw embeds
+  // stop (no pause handle). Per-tab like the timer, so other tabs keep
+  // theirs. Runs in the same task as the chime trigger: no overlap.
+  onComplete(() => pauseMusic());
   searchApi = mountSearch($('search-root'), { onLocal: handleSearchCommand });
   mountFavorites($('favorites-root'));
   mountTasks($('panel-tasks'));
@@ -243,7 +249,6 @@ function mountAll() {
   });
   mountSettings({
     onSearchChange: () => searchApi && searchApi.paint(),
-    onQuoteChange: () => quoteApi && quoteApi(),
     onLogout: async () => { await api.logout(); showLogin(); },
   });
   startThemeClock();
@@ -260,7 +265,7 @@ function enterApp(remoteState) {
   appEl.hidden = false;
 
   if (!mounted) { mountAll(); mounted = true; }
-  else { render(); if (quoteApi) quoteApi(); }
+  else { render(); }
 
   if (searchApi) searchApi.focus();
 }

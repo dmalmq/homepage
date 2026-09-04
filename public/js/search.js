@@ -97,6 +97,113 @@ export function parseLocalCommand(raw) {
   return null;
 }
 
+/** Ranked suggestions for the palette. Item 0 always mirrors resolveSearch,
+ *  so plain Enter behaves exactly as before; the rest are explicit picks —
+ *  bang prefix matches plus a web-search escape when the query reads as a
+ *  local command. Pure — tested in logic.test.js. */
+export function suggestSearch(raw) {
+  const q = String(raw || '').trim();
+  if (!q) return [];
+  const current = engine();
+  const items = [];
+  const seen = new Set();
+  const push = (item) => {
+    if (seen.has(item.key) || items.length >= 6) return;
+    seen.add(item.key);
+    items.push(item);
+  };
+
+  push(describePrimary(resolveSearch(q), q));
+  if (items[0].kind !== 'engine') {
+    push({
+      key: `engine:${current.id}`,
+      kind: 'engine',
+      tag: '⌕',
+      name: `Search ${current.name} for “${short(q)}”`,
+      detail: 'Web search',
+      url: current.url + encodeURIComponent(q),
+    });
+  }
+
+  const first = (q.match(/^!?(\S+)/) || [])[1] || '';
+  if (first) {
+    const f = first.toLowerCase();
+    for (const b of BANGS) {
+      if (!b.id.toLowerCase().startsWith(f)) continue;
+      const d = bangChoice(b, q);
+      push({
+        key: `bang:${b.id}`,
+        kind: 'bang',
+        tag: b.id.toUpperCase(),
+        name: d.rest ? `${b.name} — “${short(d.rest)}”` : `Open ${b.name}`,
+        detail: b.bare ? `${b.id} …` : `!${b.id} …`,
+        url: d.url,
+      });
+    }
+  }
+  return items;
+}
+
+/** What choosing a prefix-matched bang navigates to. */
+function bangChoice(b, q) {
+  const forced = q.match(/^!(\S+)(?:\s+([\s\S]*))?$/);
+  if (forced && forced[1].toLowerCase() === b.id) {
+    const rest = (forced[2] || '').trim();
+    return { ...dest(b, rest), rest };
+  }
+  const spaced = q.match(/^(\S+)\s+([\s\S]+)$/);
+  if (spaced && spaced[1].toLowerCase() === b.id) {
+    return { ...dest(b, spaced[2].trim()), rest: spaced[2].trim() };
+  }
+  return { ...dest(b, ''), rest: '' };
+}
+
+function describePrimary(resolved, q) {
+  if (resolved.local) {
+    const L = resolved.local;
+    if (L.kind === 'task') {
+      const later = L.list === 'later';
+      return {
+        key: `cmd:task:${L.list}`, kind: 'command', tag: later ? 'TL' : 'T',
+        name: `${later ? 'Later' : 'Task'}: ${short(L.text)}`,
+        detail: later ? 'Park for Later' : 'Add to Today', local: L,
+      };
+    }
+    if (L.kind === 'note') {
+      return {
+        key: 'cmd:note', kind: 'command', tag: 'N',
+        name: `Note: ${short(L.text)}`, detail: 'Append to Notes', local: L,
+      };
+    }
+    if (L.kind === 'timer') {
+      return {
+        key: 'cmd:timer', kind: 'command', tag: '▶',
+        name: `Start ${L.minutes}m ${L.mode === 'short' ? 'break' : 'focus'}`,
+        detail: 'Begin session', local: L,
+      };
+    }
+    return {
+      key: 'cmd:calc', kind: 'command', tag: '=',
+      name: `= ${L.value}`, detail: 'Show result', local: L,
+    };
+  }
+  if (resolved.bang) {
+    const id = ((q.match(/^!?(\S+)/) || [])[1] || '').toLowerCase();
+    const b = findBang(id);
+    const tag = (b ? b.id : id).toUpperCase();
+    return {
+      key: `bang:${b ? b.id : id}`, kind: 'bang', tag,
+      name: resolved.name, detail: 'Bang', url: resolved.url,
+    };
+  }
+  const current = engine();
+  return {
+    key: `engine:${current.id}`, kind: 'engine', tag: '⌕',
+    name: `Search ${current.name} for “${short(q)}”`,
+    detail: 'Web search', url: resolved.url,
+  };
+}
+
 /** Where a query will go. Empty input falls back to the default engine, no url. */
 export function resolveSearch(raw) {
   const q = String(raw || '').trim();
@@ -130,44 +237,111 @@ export function mountSearch(root, { autofocus = true, onLocal = null } = {}) {
   root.innerHTML = `
     <form class="search" role="search">
       <input class="search-input" type="text" name="q" autocomplete="off"
-             spellcheck="false" aria-label="Search the web" title="t task · tl task for later · n note · timer 25 · 2+2 calculates" />
+             spellcheck="false" aria-label="Search the web" aria-expanded="false" aria-controls="search-suggest"
+             title="t task · tl task for later · n note · timer 25 · 2+2 calculates" />
       <span class="search-engine"></span>
+      <ul id="search-suggest" class="search-suggest" role="listbox" aria-label="Search suggestions" hidden></ul>
     </form>`;
 
   const form = root.querySelector('.search');
   const input = root.querySelector('.search-input');
   const label = root.querySelector('.search-engine');
+  const list = root.querySelector('.search-suggest');
+
+  let items = [];
+  let sel = 0;
+
+  const runItem = (item) => {
+    if (!item) return;
+    if (item.local) {
+      // A 'keep' return leaves the field alone — the calc handler uses it to
+      // show the answer where the expression was.
+      const keep = onLocal ? onLocal(item.local, input) : undefined;
+      if (keep !== 'keep') input.value = '';
+      paint();
+      return;
+    }
+    if (!item.url) return;
+    // A new tab, so a running timer and any playing station survive the search.
+    // A click or Enter is a user gesture, so popup blockers leave it alone.
+    window.open(item.url, '_blank', 'noopener');
+    // The page is still here afterwards, so clear the field rather than leaving
+    // the last query sitting in it.
+    input.value = '';
+    paint();
+  };
+
+  const renderList = () => {
+    list.innerHTML = '';
+    items.forEach((item, i) => {
+      const li = document.createElement('li');
+      li.className = 'sug' + (i === sel ? ' is-active' : '');
+      li.setAttribute('role', 'option');
+      li.id = `search-sug-${i}`;
+      li.setAttribute('aria-selected', String(i === sel));
+      const tag = document.createElement('span');
+      tag.className = 'sug-tag';
+      tag.textContent = item.tag;
+      const name = document.createElement('span');
+      name.className = 'sug-name';
+      name.textContent = item.name;
+      const detail = document.createElement('span');
+      detail.className = 'sug-detail';
+      detail.textContent = item.detail;
+      li.append(tag, name, detail);
+      // mousedown fires before blur, so the field keeps focus and the
+      // global Escape-to-blur never sees this gesture.
+      li.addEventListener('mousedown', (e) => { e.preventDefault(); runItem(item); });
+      list.append(li);
+    });
+    const open = items.length > 0;
+    list.hidden = !open;
+    input.setAttribute('aria-expanded', String(open));
+    if (open) input.setAttribute('aria-activedescendant', `search-sug-${sel}`);
+    else input.removeAttribute('aria-activedescendant');
+  };
 
   const paint = () => {
     const resolved = resolveSearch(input.value);
     label.textContent = resolved.name;
     label.classList.toggle('is-bang', resolved.bang);
     input.placeholder = `Search ${engine().name}`;
+    items = suggestSearch(input.value);
+    sel = 0;
+    renderList();
   };
   paint();
 
   input.addEventListener('input', paint);
+  input.addEventListener('focus', paint);
+  input.addEventListener('blur', () => { items = []; renderList(); });
   subscribe(paint);
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Escape') return;
+    if (e.key === 'Escape') {
+      // First Escape closes the palette; the global handler blurs on the next.
+      // Typing fields never reach the global shortcuts, so only stop the
+      // event when there is actually something to close.
+      if (items.length === 0) return;
+      e.stopPropagation();
+      e.preventDefault();
+      items = [];
+      renderList();
+      return;
+    }
+    if (items.length === 0) return;
+    e.preventDefault();
+    sel = e.key === 'ArrowDown'
+      ? (sel + 1) % items.length
+      : (sel - 1 + items.length) % items.length;
+    renderList();
+  });
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    const resolved = resolveSearch(input.value);
-    if (resolved.local) {
-      // A 'keep' return leaves the field alone — the calc handler uses it to
-      // show the answer where the expression was.
-      const keep = onLocal ? onLocal(resolved.local, input) : undefined;
-      if (keep !== 'keep') input.value = '';
-      paint();
-      return;
-    }
-    if (!resolved.url) return;
-    // A new tab, so a running timer and any playing station survive the search.
-    // This is a user gesture, so popup blockers leave it alone.
-    window.open(resolved.url, '_blank', 'noopener');
-    // The page is still here afterwards, so clear the field rather than leaving
-    // the last query sitting in it.
-    input.value = '';
-    paint();
+    // Selection 0 mirrors resolveSearch, so plain Enter is unchanged.
+    runItem(items[sel]);
   });
 
   if (autofocus) input.focus();

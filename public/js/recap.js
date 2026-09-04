@@ -73,12 +73,26 @@ function renderRecap() {
   return wrap;
 }
 
+/** Midnight timestamps for today and the six days before. Built by stepping
+ *  the calendar rather than subtracting 24h: across a DST change local
+ *  midnights sit 23 or 25 hours apart, so fixed subtraction can skip the
+ *  oldest day or miss the streak lookup. Exported for tests. */
+export function lastSevenMidnights(now = Date.now()) {
+  const d = new Date(now);
+  d.setHours(0, 0, 0, 0);
+  const keys = [d.getTime()];
+  for (let i = 1; i < 7; i++) {
+    d.setDate(d.getDate() - 1);
+    keys.unshift(d.getTime());
+  }
+  return keys;
+}
+
 /** Week aggregates over the last 7 calendar days. Pure for tests. */
 export function recapStats(sessions = state.sessions || [], now = Date.now()) {
-  const DAY = 86_400_000;
-  const midnight = new Date(now);
-  midnight.setHours(0, 0, 0, 0);
-  const todayStart = midnight.getTime();
+  const keys = lastSevenMidnights(now);
+  const inWindow = new Set(keys);
+  const todayStart = keys[keys.length - 1];
 
   const days = new Map();
   for (const s of sessions) {
@@ -86,7 +100,7 @@ export function recapStats(sessions = state.sessions || [], now = Date.now()) {
     const d = new Date(s.t);
     d.setHours(0, 0, 0, 0);
     const key = d.getTime();
-    if (key > todayStart || todayStart - key > 6 * DAY) continue;
+    if (!inWindow.has(key)) continue;
     const e = days.get(key) || { n: 0, mins: 0 };
     e.n += 1;
     e.mins += Number(s.minutes) || 0;
@@ -106,9 +120,10 @@ export function recapStats(sessions = state.sessions || [], now = Date.now()) {
   }
 
   // A quiet today doesn't break the run — count back from yesterday instead.
+  // Index-based over the same key list, so a 23/25-hour day can't break it.
   let streak = 0;
-  let cursor = today.n ? todayStart : todayStart - DAY;
-  while (days.has(cursor)) { streak += 1; cursor -= DAY; }
+  let idx = today.n ? keys.length - 1 : keys.length - 2;
+  while (idx >= 0 && days.has(keys[idx])) { streak += 1; idx -= 1; }
 
   return {
     todayCount: today.n,
