@@ -43,6 +43,9 @@ function showLogin() {
 // ---------- Dock + floating panel ----------
 const PANEL_TITLES = { tasks: 'Tasks', listen: 'Listen', notes: 'Notes', recap: 'Today' };
 let openPanel = null;
+// Who opened the panel, so a close that strands focus (the close button just
+// hid, an outside tap) can hand it back. Read on close, cleared on close.
+let panelOpener = null;
 
 function showPanel(name) {
   const panel = $('panel');
@@ -56,9 +59,15 @@ function showPanel(name) {
   panel.classList.toggle('panel--right', name === 'recap');
   panel.hidden = false;
   document.querySelectorAll('.dock-btn[data-panel]').forEach(b => {
-    b.classList.toggle('is-active', b.dataset.panel === name);
+    const active = b.dataset.panel === name;
+    b.classList.toggle('is-active', active);
+    b.setAttribute('aria-expanded', String(active));
   });
-  $('session-count').classList.toggle('is-active', name === 'recap');
+  const recap = name === 'recap';
+  const count = $('session-count');
+  count.classList.toggle('is-active', recap);
+  count.setAttribute('aria-expanded', String(recap));
+  if (document.activeElement instanceof HTMLElement) panelOpener = document.activeElement;
 
   // Autofocus the field a panel exists for, so it's usable straight away.
   const field = name === 'notes'
@@ -72,8 +81,20 @@ function hidePanel() {
   const panel = $('panel');
   panel.hidden = true;
   panel.classList.remove('panel--right');
-  document.querySelectorAll('.dock-btn[data-panel]').forEach(b => b.classList.remove('is-active'));
-  $('session-count').classList.remove('is-active');
+  document.querySelectorAll('.dock-btn[data-panel]').forEach(b => {
+    b.classList.remove('is-active');
+    b.setAttribute('aria-expanded', 'false');
+  });
+  const count = $('session-count');
+  count.classList.remove('is-active');
+  count.setAttribute('aria-expanded', 'false');
+  // A close that orphans focus (the close button just hid, an outside tap)
+  // hands it back to whoever opened the panel — but only when focus is now
+  // nowhere (body). Anything the user already focused keeps it.
+  if (panelOpener && document.activeElement === document.body && document.contains(panelOpener)) {
+    panelOpener.focus();
+  }
+  panelOpener = null;
 }
 // showPanel toggles, which is what the dock buttons want. Commands want
 // open-without-toggle: adding a second task must not close the queue.
@@ -82,12 +103,15 @@ function ensurePanel(name) {
 }
 
 function wireDock() {
+  // Closed until first opened; showPanel/hidePanel own the value from here.
   document.querySelectorAll('.dock-btn[data-panel]').forEach(b => {
+    b.setAttribute('aria-expanded', 'false');
     b.addEventListener('click', () => showPanel(b.dataset.panel));
   });
   $('panel-close').addEventListener('click', hidePanel);
-  $('session-count').addEventListener('click', () => showPanel('recap'));
-
+  const count = $('session-count');
+  count.setAttribute('aria-expanded', 'false');
+  count.addEventListener('click', () => showPanel('recap'));
   $('fullscreen-btn').addEventListener('click', () => {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
     else document.exitFullscreen();
@@ -125,11 +149,11 @@ function wireCurrentTask() {
   const paint = () => {
     const task = state.tasks.find(t => t.id === state.currentTaskId);
     if (!task) {
-      el.textContent = 'No task selected';
+      el.textContent = 'Choose a task';
       el.classList.add('is-empty');
       // The line truncates, so the title has to carry the text rather than a
       // hint about clicking; the hover treatment already says it is a control.
-      el.title = 'Pick something to work on';
+      el.title = 'Choose a task';
     } else if (Number(task.est)) {
       const spent = Math.min(Number(task.spent) || 0, Number(task.est));
       el.textContent = `${task.text} · ${spent}/${task.est}`;
@@ -165,13 +189,55 @@ function wireSyncStatus() {
   const labels = {
     idle: '', saving: 'Saving', synced: '', offline: 'Offline', error: 'Sync failed',
   };
+  let retrying = false;
+  let retryTimer = null;
+
+  const retry = () => {
+    retrying = true;
+    clearTimeout(retryTimer);
+    retryTimer = setTimeout(() => {
+      retrying = false;
+      paint();
+    }, 1_500);
+    paint();
+    retrySyncNow();
+  };
+
   const paint = () => {
+    const phase = syncStatus.phase;
+    if (phase === 'synced') {
+      retrying = false;
+      clearTimeout(retryTimer);
+    }
+    const transient = retrying && phase !== 'synced';
+    const label = transient ? 'Saved locally · retrying' : (labels[phase] || '');
     const backup = syncStatus.backupAvailable ? '' : ' · local backup unavailable';
-    el.textContent = labels[syncStatus.phase] || '';
-    el.hidden = !el.textContent && !backup;
-    el.className = `sync-status sync-status--${syncStatus.phase}`;
-    el.title = `${el.textContent || 'Synced'}${backup}`;
+    const recovery = phase === 'offline' || phase === 'error';
+    el.className = `sync-status sync-status--${transient ? 'retrying' : phase}`;
+    el.title = `${label || 'Synced'}${backup}`;
     el.setAttribute('aria-label', el.title);
+    el.hidden = !label && !backup && !recovery;
+
+    if (!recovery) {
+      el.textContent = label;
+      return;
+    }
+
+    const compact = innerWidth <= 400;
+    const status = document.createElement('span');
+    status.textContent = label;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'ghost-btn sync-status__retry';
+    button.textContent = compact && transient ? 'Retrying' : 'Retry';
+    button.title = 'Retry sync now';
+    button.setAttribute('aria-label', 'Retry sync now');
+    Object.assign(button.style, {
+      color: 'inherit', font: 'inherit', fontSize: 'inherit', padding: '0 4px',
+      margin: compact ? '0' : '0 0 0 6px',
+    });
+    button.addEventListener('click', retry);
+    el.replaceChildren(...(compact ? [button] : [status, button]));
   };
   paint();
   subscribeSync(paint);

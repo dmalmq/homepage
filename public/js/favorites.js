@@ -1,9 +1,9 @@
 // Favorite sites as letter-mark tiles.
 //
 // Monograms are the default rather than favicons: a favicon service means a
-// third-party request for every site you've saved, on every new tab. The hue is
-// derived from the label so tiles stay distinguishable at a glance without
-// introducing colour as decoration. Settings can switch to real favicons.
+// third-party request for every site you've saved, on every new tab. Tiles stay
+// white type on a white-0.10 wash — the letterforms do the distinguishing, so no
+// decorative colour enters the field. Settings can switch to real favicons.
 
 import { state, commit, uid, subscribe } from './store.js';
 
@@ -59,10 +59,23 @@ function renderFavorites() {
   if (favorites.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'fav-empty';
-    empty.textContent = 'No sites yet — add up to 8 in Settings. Keys 1–8 open them.';
+    const action = document.createElement('button');
+    action.type = 'button';
+    action.className = 'set-btn';
+    action.textContent = 'Add a favorite';
+    action.addEventListener('click', () => {
+      document.getElementById('settings-open')?.click();
+      requestAnimationFrame(() => {
+        const editor = document.getElementById('favorites-editor');
+        editor?.querySelector('.edit-add')?.click();
+        editor?.querySelector('input')?.focus();
+      });
+    });
+    empty.append('No favorites yet. ', action);
     gridEl.append(empty);
     return;
   }
+
 
   favorites.forEach((fav, i) => {
     const a = document.createElement('a');
@@ -199,7 +212,7 @@ export function mountFavoritesEditor(root) {
       const add = document.createElement('button');
       add.type = 'button';
       add.className = 'edit-add';
-      add.textContent = 'Add a site';
+      add.textContent = 'Add a favorite';
       add.addEventListener('click', () => {
         draft = { id: uid(), label: '', url: '' };
         paint();

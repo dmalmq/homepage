@@ -8,6 +8,10 @@ import { nextTaskId } from './pomodoro.js';
 let todayList = null;
 let laterList = null;
 let refocusId = null;
+let pendingDelete = null;
+let deleteTimer = null;
+
+const DELETE_UNDO_MS = 8_000;
 
 export function mountTasks(root) {
   root.innerHTML = `
@@ -23,7 +27,7 @@ export function mountTasks(root) {
       <input class="task-input" data-list="later" type="text" maxlength="120"
              placeholder="Park for later" aria-label="Park for later" />
     </section>
-    <p class="task-hint">Click to focus, double-click to rename. End with 2p to estimate sessions.</p>`;
+    <p class="task-hint">Choose a task to focus. Double-click to rename. Add 2p for sessions.</p>`;
 
   todayList = root.querySelector('[data-list="today"].task-list');
   laterList = root.querySelector('[data-list="later"].task-list');
@@ -77,13 +81,43 @@ function markDone(task, done) {
 }
 
 function removeToday(id) {
-  state.tasks = state.tasks.filter(t => t.id !== id);
-  if (state.currentTaskId === id) state.currentTaskId = nextTaskId();
+  const i = state.tasks.findIndex(t => t.id === id);
+  if (i < 0) return;
+  const [task] = state.tasks.splice(i, 1);
+  const wasCurrent = state.currentTaskId === id;
+  if (wasCurrent) state.currentTaskId = nextTaskId();
+  queueDelete(task, 'today', i, wasCurrent, state.currentTaskId);
   commit();
 }
 
 function removeLater(id) {
-  state.later = state.later.filter(t => t.id !== id);
+  const i = state.later.findIndex(t => t.id === id);
+  if (i < 0) return;
+  const [task] = state.later.splice(i, 1);
+  queueDelete(task, 'later', i, false, state.currentTaskId);
+  commit();
+}
+
+function queueDelete(task, list, index, wasCurrent, replacementId) {
+  clearTimeout(deleteTimer);
+  pendingDelete = { task, list, index, wasCurrent, replacementId };
+  deleteTimer = setTimeout(() => {
+    if (!pendingDelete || pendingDelete.task !== task) return;
+    pendingDelete = null;
+    deleteTimer = null;
+    renderTasks();
+  }, DELETE_UNDO_MS);
+}
+
+function undoDelete() {
+  const deleted = pendingDelete;
+  if (!deleted) return;
+  const arr = deleted.list === 'later' ? state.later : state.tasks;
+  if (arr.some(t => t.id === deleted.task.id)) return;
+  clearTimeout(deleteTimer);
+  pendingDelete = null;
+  arr.splice(Math.min(deleted.index, arr.length), 0, deleted.task);
+  if (deleted.wasCurrent && state.currentTaskId === deleted.replacementId) state.currentTaskId = deleted.task.id;
   commit();
 }
 
@@ -118,14 +152,20 @@ function renderTasks() {
 
 function paintList(el, items, list) {
   el.innerHTML = '';
+  const undo = pendingDelete && pendingDelete.list === list
+    ? undoRow(pendingDelete)
+    : null;
 
   if (items.length === 0) {
-    const empty = document.createElement('li');
-    empty.className = 'task-empty';
-    empty.textContent = list === 'today'
-      ? 'Add what you want to get through today.'
-      : 'Nothing parked yet.';
-    el.append(empty);
+    if (undo) el.append(undo);
+    else {
+      const empty = document.createElement('li');
+      empty.className = 'task-empty';
+      empty.textContent = list === 'today'
+        ? 'Add what you want to get through today.'
+        : 'Nothing parked yet.';
+      el.append(empty);
+    }
     return;
   }
 
@@ -173,6 +213,8 @@ function paintList(el, items, list) {
     el.append(li);
   });
 
+  if (undo) el.insertBefore(undo, el.children[Math.min(pendingDelete.index, el.children.length)] || null);
+
   // A menu action rebuilds the list, which would drop focus on the floor.
   if (refocusId) {
     const back = el.querySelector(`[data-task="${refocusId}"] .task-more`);
@@ -180,8 +222,43 @@ function paintList(el, items, list) {
   }
 }
 
-/** The row's one action control plus the popover it opens. Four buttons used to
- *  sit inline and took more width than the task title they sat beside. */
+function undoRow(deleted) {
+  const li = document.createElement('li');
+  li.className = 'task-empty task-undo';
+  const label = document.createElement('span');
+  label.textContent = 'Task deleted.';
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'ghost-btn';
+  button.textContent = 'Undo';
+  button.setAttribute('aria-label', `Undo deleting "${deleted.task.text}"`);
+  Object.assign(button.style, { margin: '0 0 0 8px', padding: '2px 4px', fontSize: 'inherit' });
+  button.addEventListener('click', undoDelete);
+  li.append(label, button);
+  return li;
+}
+/** Estimate badge, today only: sessions spent of those estimated. Click
+ * cycles 1 → 2 → 3 → 4 → none so it stays one quiet control. */
+function estButton(task) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'task-est' + (task.est ? '' : ' is-off');
+  const spent = Number(task.spent) || 0;
+  b.textContent = task.est ? `${Math.min(spent, task.est)}/${task.est}p` : '+p';
+  b.title = task.est
+    ? `${spent} of ${task.est} sessions banked — click to change the estimate`
+    : 'Estimate sessions — click to set';
+  b.setAttribute('aria-label', b.title);
+  b.addEventListener('click', () => {
+    // none → 1 → 2 → 3 → 4 → none. Dropping the estimate keeps banked
+    // sessions on the record but stops gating completion on them.
+    const next = task.est ? (task.est >= 4 ? 0 : task.est + 1) : 1;
+    if (next) { task.est = next; task.spent = Math.min(spent, next); }
+    else { delete task.est; }
+    commit();
+  });
+  return b;
+}
 function rowMenu(task, i, list, count) {
   const arr = list === 'later' ? state.later : state.tasks;
 
@@ -270,26 +347,6 @@ function placeOnOpen(menu, anchor) {
   });
 }
 
-function estButton(task) {
-  const b = document.createElement('button');
-  b.type = 'button';
-  b.className = 'task-est' + (task.est ? '' : ' is-off');
-  const spent = Number(task.spent) || 0;
-  b.textContent = task.est ? `${Math.min(spent, task.est)}/${task.est}p` : '+p';
-  b.title = task.est
-    ? `${spent} of ${task.est} sessions banked — click to change the estimate`
-    : 'Estimate sessions — click to set';
-  b.setAttribute('aria-label', b.title);
-  b.addEventListener('click', () => {
-    // none → 1 → 2 → 3 → 4 → none. Dropping the estimate keeps banked
-    // sessions on the record but stops gating completion on them.
-    const next = task.est ? (task.est >= 4 ? 0 : task.est + 1) : 1;
-    if (next) { task.est = next; task.spent = Math.min(spent, next); }
-    else { delete task.est; }
-    commit();
-  });
-  return b;
-}
 
 function move(arr, index, delta) {
   const target = index + delta;

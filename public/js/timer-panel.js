@@ -33,7 +33,8 @@ export function mountTimer(root) {
       <button type="button" class="icon-btn timer-reset" title="Reset" aria-label="Reset">
         <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v6h6"/><path d="M3.5 13a9 9 0 1 0 2.1-6.4L3 8"/></svg>
       </button>
-    </div>`;
+    </div>
+    <p class="timer-locality">Runs on this device</p>`;
 
   // Chrome sits in the equal 1fr rows above and below so the readout
   // occupies the same centre as the Home clock.
@@ -44,6 +45,7 @@ export function mountTimer(root) {
   );
   view.querySelector('.stage-south')?.append(
     root.querySelector('.controls'),
+    root.querySelector('.timer-locality'),
   );
 
   const readout = view.querySelector('.readout');

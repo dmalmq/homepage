@@ -48,6 +48,19 @@ export function wireKeys({
   const hideKeys = () => { if (root.open) root.close(); };
   const showKeys = () => { if (!root.open) root.showModal(); };
   const keysOpen = () => root.open;
+  const dock = document.querySelector('.dock--left');
+  if (dock && !document.getElementById('keys-open')) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.id = 'keys-open';
+    button.className = 'dock-btn';
+    button.textContent = '?';
+    button.title = 'Keyboard shortcuts (?)';
+    button.setAttribute('aria-label', 'Keyboard shortcuts');
+    button.setAttribute('aria-keyshortcuts', '?');
+    button.addEventListener('click', showKeys);
+    dock.append(button);
+  }
 
   root.addEventListener('click', (e) => {
     if (e.target === root) hideKeys();

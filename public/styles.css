@@ -467,7 +467,7 @@ html[data-wallpaper] {
   margin: 0;
   padding: 6px;
   list-style: none;
-  background: rgb(22 13 43 / 0.94);
+  background: rgb(18 12 34 / 0.94);
   border: 1px solid var(--glass-line);
   border-radius: 16px;
   backdrop-filter: blur(14px);
@@ -754,7 +754,7 @@ html[data-wallpaper] {
   margin: 0;
   padding: 4px;
   color: var(--ink);
-  background: rgb(24 17 44 / 0.96);
+  background: rgb(18 12 34 / 0.96);
   border: 1px solid var(--glass-line);
   border-radius: 10px;
   backdrop-filter: blur(22px);
@@ -1371,6 +1371,18 @@ html[data-wallpaper] {
 @media (forced-colors: active) {
   .field select { appearance: auto; background-image: none; padding-right: 10px; }
 }
+/* Fills flatten in high contrast, so "current" survives as outline instead:
+   the selected tab, active mode, and active dock button are otherwise
+   identical to their siblings. Dots keep their filled/ring split in system
+   colours; range inputs fall back to native sliders like .switch does. */
+@media (forced-colors: active) {
+  .stage-tab[aria-selected="true"],
+  .mode.is-active,
+  .dock-btn.is-active,
+  .dock-count.is-active { outline: 2px solid ButtonText; outline-offset: 2px; }
+  .dot.is-done { background: ButtonText; }
+  .sp-seek, .sp-vol { appearance: auto; }
+}
 /* Sized to its content: three digits, not a text field. */
 .set-num { width: 76px; }
 .set-control > input[type="url"],
@@ -1527,7 +1539,10 @@ html[data-wallpaper] {
   .task-input, .notes-area, .search-input, .login-card input { font-size: 16px; }
 }
 
-@media (max-width: 380px) {
+/* Narrow phones stack the docks: side by side, a visible sync state
+   ("Sync failed" plus the session count) collides with the left dock below
+   ~430px. Stacking always fits, so the breakpoint carries margin. */
+@media (max-width: 480px) {
   .dock--right { bottom: 70px; }
   .panel,
   .panel--right { bottom: 122px; }
@@ -1702,4 +1717,37 @@ html[data-wallpaper] {
   0%   { opacity: 1; transform: translate(-50%, -50%) rotate(0) scale(0.4); }
   20%  { opacity: 1; transform: translate(calc(-50% + var(--dx) * 0.5), calc(-50% + var(--dy) * 0.18)) rotate(calc(var(--spin) * 0.35)) scale(1); }
   100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--spin)) scale(0.85); }
+}
+/* Invisible target expansion keeps compact controls comfortable without changing
+   their drawn size or taking space in the layout. */
+.dock-btn,
+.dock-count,
+.panel-close,
+.icon-btn,
+.task-more,
+.mode,
+.stage-tab,
+.sp-btn { position: relative; }
+.dock-btn::after,
+.dock-count::after,
+.panel-close::after,
+.icon-btn::after,
+.task-more::after,
+.mode::after,
+.stage-tab::after,
+.sp-btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
+.timer-locality {
+  margin: 8px 0 0;
+  color: var(--ink-faint);
+  font-size: 11px;
+  line-height: 1.2;
 }
