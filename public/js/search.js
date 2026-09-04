@@ -236,8 +236,8 @@ export function resolveSearch(raw) {
 export function mountSearch(root, { autofocus = true, onLocal = null } = {}) {
   root.innerHTML = `
     <form class="search" role="search">
-      <input class="search-input" type="text" name="q" autocomplete="off"
-             spellcheck="false" aria-label="Search the web" aria-expanded="false" aria-controls="search-suggest"
+      <input class="search-input" type="text" name="q" autocomplete="off" role="combobox" aria-autocomplete="list"
+             spellcheck="false" aria-label="Search or run a command" aria-expanded="false" aria-controls="search-suggest"
              title="t task · tl task for later · n note · timer 25 · 2+2 calculates" />
       <span class="search-engine"></span>
       <ul id="search-suggest" class="search-suggest" role="listbox" aria-label="Search suggestions" hidden></ul>
