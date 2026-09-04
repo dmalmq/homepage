@@ -54,7 +54,12 @@ export function wireKeys({
     button.type = 'button';
     button.id = 'keys-open';
     button.className = 'dock-btn';
-    button.textContent = '?';
+    // Drawn, not typed: the three siblings are Feather line icons and a text
+    // "?" sat among them at the body font's weight and size. help-circle keeps
+    // the question mark this button is named for, in their stroke.
+    button.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"'
+      + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/>'
+      + '<path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>';
     button.title = 'Keyboard shortcuts (?)';
     button.setAttribute('aria-label', 'Keyboard shortcuts');
     button.setAttribute('aria-keyshortcuts', '?');
