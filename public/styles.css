@@ -413,12 +413,15 @@ html[data-wallpaper] {
 .icon-btn:hover { color: var(--ink); background: rgb(255 255 255 / 0.12); }
 
 /* ---------- Jump: search + favorites ---------- */
+/* One column, one set of edges: the field and the tiles under it are the whole
+   Home stage, so they read as a single object rather than three centred rows.
+   No align-items here on purpose — `center` stopped #search-root stretching,
+   which left the field sized by its own placeholder string. */
 .jump {
-  width: min(560px, 100%);
+  width: min(720px, 100%);
   display: flex;
   flex-direction: column;
   gap: 16px;
-  align-items: center;
 }
 
 .search { display: flex; position: relative; width: 100%; }
@@ -508,19 +511,32 @@ html[data-wallpaper] {
 }
 .sug-detail { flex: none; font-size: 12px; color: var(--ink-faint); }
 
+/* Eight equal destinations on eight fixed keys, so they get equal tracks in
+   reading order: 1-4 above 5-8. Centred wrapping sized every row by its own
+   labels, which moved a tile's position whenever a name changed. auto-fit
+   gives four tracks at the full column, three then two as it narrows, and
+   collapses the tracks a short list does not reach. */
 .fav-row {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 8px;
-  justify-content: center;
 }
+.fav-row:has(.fav-empty) { display: flex; justify-content: center; }
 .fav-empty { font-size: 13px; color: var(--ink-faint); }
 
 .fav {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 10px 18px;
+  gap: 6px;
+  /* Fills its track, so the tiles are one width. The cap plus justify-self
+     keeps a short list as centred tiles rather than stretched banners; an auto
+     width or an auto margin would fall back to fit-content and lose the
+     shared edges that are the point. */
+  width: 100%;
+  min-width: 0;
+  max-width: 200px;
+  justify-self: center;
+  padding: 10px 14px;
   border-radius: var(--pill);
   background: rgb(255 255 255 / 0.10);
   border: 1px solid transparent;
@@ -532,7 +548,10 @@ html[data-wallpaper] {
 .fav-mark { font-weight: 700; font-size: 14px; letter-spacing: 0.02em; }
 .fav-mark img { width: 17px; height: 17px; display: block; }
 .fav-label { max-width: 16ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Pushed to the tile's own edge, so with equal tracks the eight keys read as
+   two columns of numbers instead of floating behind each label. */
 .fav-key {
+  margin-left: auto;
   font-size: 10px;
   font-weight: 700;
   line-height: 1.2;
