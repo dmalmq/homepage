@@ -1539,15 +1539,22 @@ html[data-wallpaper] {
   .task-input, .notes-area, .search-input, .login-card input { font-size: 16px; }
 }
 
-/* Narrow phones stack the docks: side by side, a visible sync state
-   ("Sync failed" plus the session count) collides with the left dock below
-   ~430px. Stacking always fits, so the breakpoint carries margin. */
+/* Narrow phones stack the docks only while a sync state is visible: side by
+   side, "Sync failed" plus the session count collides with the left dock
+   below ~430px, but slim docks fit and stay bottom-aligned. The status hides
+   itself when idle, so :has tracks exactly the wide case. */
 @media (max-width: 480px) {
+  body:has(#sync-status:not([hidden])) .dock--right { bottom: 70px; }
+  body:has(#sync-status:not([hidden])) .panel,
+  body:has(#sync-status:not([hidden])) .panel--right { bottom: 122px; }
+  body:has(#sync-status:not([hidden])) .player { bottom: 122px; }
+  .sync-status { max-width: 68px; overflow: hidden; text-overflow: ellipsis; }
+}
+@media (max-width: 380px) {
   .dock--right { bottom: 70px; }
   .panel,
   .panel--right { bottom: 122px; }
   .player { bottom: 122px; }
-  .sync-status { max-width: 68px; overflow: hidden; text-overflow: ellipsis; }
 }
 
 /* Short windows shrink the timer rather than dropping search and favorites.

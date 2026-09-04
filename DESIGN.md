@@ -147,7 +147,7 @@ Single-viewport shell, no scroll: `.app` is a 100%-height grid (26px 30px paddin
 
 Centre column is `min(560px, 100%)` (search + favorites); floating panel is fixed bottom-left `min(360px, 100vw − 44px)`, max-height `min(60vh, 520px)`. Docks are fixed bottom pills (22px insets). Topbar spreads date/weather left, clock right, with a quiet segmented tab row centred in the empty band between. Rhythm is 2/6/10/14/18/24px gaps — 6px inside pills, 14–18px between stage rows, 24px across the topbar.
 
-Responsive: ≤720px tightens padding, gaps, and readout; ≤480px stacks the right dock above the left (with panel and player rising to match) so a visible sync state can never collide with the panel dock; short viewports (≤780px, ≤620px height) shrink the readout and stack gaps, and ≤440px height returns the topbar to its own row. Touch (`hover: none`) keeps key hints visible instead of hover-revealed. No load entrance on `.stage` — a backwards-fill slide held the whole column 10px low and made the timer read off-centre.
+Responsive: ≤720px tightens padding, gaps, and readout; ≤480px stacks the right dock above the left (with panel and player rising to match) only while a sync state is visible — slim docks stay bottom-aligned; ≤380px always stacks; short viewports (≤780px, ≤620px height) shrink the readout and stack gaps, and ≤440px height returns the topbar to its own row. Touch (`hover: none`) keeps key hints visible instead of hover-revealed. No load entrance on `.stage` — a backwards-fill slide held the whole column 10px low and made the timer read off-centre.
 
 ## Elevation & Depth
 
