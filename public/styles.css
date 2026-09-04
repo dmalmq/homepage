@@ -625,9 +625,9 @@ html[data-wallpaper] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px 10px;
+  padding: 14px 16px 2px;
 }
-.panel-head h2 { font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+.panel-head h2 { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; color: var(--ink); }
 .panel-close {
   display: grid;
   place-items: center;
@@ -637,7 +637,7 @@ html[data-wallpaper] {
   cursor: pointer;
 }
 .panel-close:hover { color: var(--ink); background: rgb(255 255 255 / 0.12); }
-.panel-body { padding: 0 16px 16px; overflow-y: auto; }
+.panel-body { padding: 8px 16px 16px; overflow-y: auto; }
 .panel--right {
   left: auto;
   right: 22px;
@@ -649,15 +649,30 @@ html[data-wallpaper] {
 .task-heading {
   font-size: 12px;
   font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
   color: var(--ink-faint);
-  padding-bottom: 6px;
+  padding-bottom: 7px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--glass-line);
 }
 .task-list { margin-bottom: 10px; }
 .task-empty { font-size: 13px; color: var(--ink-faint); padding: 2px 0 8px; }
 
 .task-hint { font-size: 12px; color: var(--ink-faint); padding-top: 14px; }
 
-.task-item { display: flex; align-items: center; gap: 10px; padding: 5px 0; }
+/* Four inline action buttons took 121px of a 313px row — more than the task
+   title beside them at 107px. One menu button costs 24px and hands the width
+   back to the thing you actually read. */
+.task-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 0;
+  min-height: 34px;
+}
+.task-item--later { grid-template-columns: minmax(0, 1fr) auto; }
 .task-toggle {
   flex: 0 0 auto;
   width: 15px; height: 15px;
@@ -695,6 +710,9 @@ html[data-wallpaper] {
 .task-text[contenteditable] { white-space: normal; cursor: text; }
 .task-est {
   flex: none;
+  display: grid;
+  place-items: center;
+  min-height: 24px;
   font: inherit;
   font-size: 11px;
   font-weight: 700;
@@ -703,7 +721,7 @@ html[data-wallpaper] {
   background: rgb(255 255 255 / 0.08);
   border: 1px solid var(--glass-line);
   border-radius: var(--pill);
-  padding: 2px 8px;
+  padding: 0 8px;
   cursor: pointer;
 }
 .task-est:hover { color: var(--ink); border-color: var(--ink-faint); }
@@ -715,21 +733,54 @@ html[data-wallpaper] {
   .task-est.is-off { opacity: 0.8; }
 }
 
-/* Reveal-on-hover is the point of the row staying quiet, but a device with no
-   hover has no way in — and these are the only controls that reorder or delete
-   a task. Visible by default, hidden again only where hover exists. */
-.task-actions { display: flex; gap: 6px; opacity: 1; }
-@media (hover: hover) {
-  .task-actions { opacity: 0; }
-  .task-item:hover .task-actions, .task-actions:focus-within { opacity: 1; }
-}
-.task-actions button {
-  font: inherit; font-size: 12px;
+.task-more {
+  display: grid; place-items: center;
+  width: 24px; height: 24px;
+  padding: 0;
   color: var(--ink-faint);
-  background: none; border: 0; cursor: pointer;
-  min-width: 24px; min-height: 24px; padding: 4px 6px;
+  background: none; border: 0; border-radius: 6px;
+  cursor: pointer;
 }
-.task-actions button:hover { color: var(--ink); }
+.task-more:hover, .task-more[aria-expanded="true"] {
+  color: var(--ink);
+  background: rgb(255 255 255 / 0.10);
+}
+
+/* Top layer, so it clears the panel's own overflow: auto instead of being
+   clipped by it. Width is fixed here because tasks.js positions from it. */
+.task-menu {
+  position: fixed;
+  width: 172px;
+  margin: 0;
+  padding: 4px;
+  color: var(--ink);
+  background: rgb(24 17 44 / 0.96);
+  border: 1px solid var(--glass-line);
+  border-radius: 10px;
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 0.45);
+}
+.task-menu:popover-open { animation: menuIn 0.12s var(--swift); }
+@keyframes menuIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.task-menu button {
+  display: block;
+  width: 100%;
+  min-height: 30px;
+  font: inherit; font-size: 13px; text-align: start;
+  color: var(--ink-soft);
+  background: none; border: 0; border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.task-menu button:hover:not(:disabled) { color: var(--ink); background: rgb(255 255 255 / 0.10); }
+.task-menu button:disabled { opacity: 0.35; cursor: default; }
+.task-menu .is-danger { color: var(--ink-danger); }
+.task-menu .is-danger:hover:not(:disabled) { color: var(--ink-danger); background: rgb(255 201 209 / 0.12); }
+.task-menu hr { height: 1px; margin: 4px 8px; border: 0; background: var(--glass-line); }
 
 .task-input {
   width: 100%;

@@ -7,6 +7,7 @@ import { nextTaskId } from './pomodoro.js';
 
 let todayList = null;
 let laterList = null;
+let refocusId = null;
 
 export function mountTasks(root) {
   root.innerHTML = `
@@ -14,7 +15,7 @@ export function mountTasks(root) {
       <h3 class="task-heading">Today</h3>
       <ul class="task-list" data-list="today"></ul>
       <input class="task-input" data-list="today" type="text" maxlength="120"
-             placeholder="Add a task — Draft report 2p estimates two sessions" aria-label="Add a task" />
+             placeholder="Draft report 2p" aria-label="Add a task" />
     </section>
     <section class="task-section">
       <h3 class="task-heading">Later</h3>
@@ -123,14 +124,15 @@ function paintList(el, items, list) {
     empty.className = 'task-empty';
     empty.textContent = list === 'today'
       ? 'Add what you want to get through today.'
-      : 'Nothing parked.';
+      : 'Nothing parked yet.';
     el.append(empty);
     return;
   }
 
   items.forEach((task, i) => {
     const li = document.createElement('li');
-    li.className = 'task-item';
+    li.className = 'task-item' + (list === 'later' ? ' task-item--later' : '');
+    li.dataset.task = task.id;
     if (list === 'today') {
       li.classList.toggle('is-current', task.id === state.currentTaskId);
       li.classList.toggle('is-done', !!task.done);
@@ -167,25 +169,104 @@ function paintList(el, items, list) {
       li.append(estButton(task));
     }
 
-    const actions = document.createElement('div');
-    actions.className = 'task-actions';
-    if (list === 'today') {
-      actions.append(
-        actionButton('Move up', '↑', () => move(state.tasks, i, -1)),
-        actionButton('Move down', '↓', () => move(state.tasks, i, 1)),
-      );
-      if (!task.done) actions.append(actionButton('Move to later', 'later', () => toLater(task.id)));
-      actions.append(actionButton('Delete', '✕', () => removeToday(task.id)));
-    } else {
-      actions.append(
-        actionButton('Move up', '↑', () => move(state.later, i, -1)),
-        actionButton('Move down', '↓', () => move(state.later, i, 1)),
-        actionButton('Move to today', 'today', () => toToday(task.id)),
-        actionButton('Delete', '✕', () => removeLater(task.id)),
-      );
-    }
-    li.append(actions);
+    li.append(...rowMenu(task, i, list, items.length));
     el.append(li);
+  });
+
+  // A menu action rebuilds the list, which would drop focus on the floor.
+  if (refocusId) {
+    const back = el.querySelector(`[data-task="${refocusId}"] .task-more`);
+    if (back) { back.focus(); refocusId = null; }
+  }
+}
+
+/** The row's one action control plus the popover it opens. Four buttons used to
+ *  sit inline and took more width than the task title they sat beside. */
+function rowMenu(task, i, list, count) {
+  const arr = list === 'later' ? state.later : state.tasks;
+
+  const more = document.createElement('button');
+  more.type = 'button';
+  more.className = 'task-more';
+  more.title = 'Task actions';
+  more.setAttribute('aria-label', `Actions for "${task.text}"`);
+  more.setAttribute('aria-expanded', 'false');
+  more.setAttribute('aria-haspopup', 'menu');
+  more.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"'
+    + ' stroke-width="2.5" stroke-linecap="round"><path d="M5 12h.01M12 12h.01M19 12h.01"/></svg>';
+
+  const menu = document.createElement('div');
+  menu.className = 'task-menu';
+  menu.popover = 'auto';
+  menu.id = `task-menu-${task.id}`;
+  more.setAttribute('popovertarget', menu.id);
+
+  const item = (label, onClick, { danger = false, disabled = false } = {}) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    b.disabled = disabled;
+    if (danger) b.className = 'is-danger';
+    b.addEventListener('click', () => {
+      menu.hidePopover();
+      // Deleting removes the row, so there is nothing to hand focus back to.
+      refocusId = danger ? null : task.id;
+      onClick();
+    });
+    return b;
+  };
+
+  menu.append(
+    item('Move up', () => move(arr, i, -1), { disabled: i === 0 }),
+    item('Move down', () => move(arr, i, 1), { disabled: i === count - 1 }),
+    list === 'today'
+      ? item('Move to Later', () => toLater(task.id), { disabled: !!task.done })
+      : item('Move to Today', () => toToday(task.id)),
+    divider(),
+    item('Delete', () => (list === 'later' ? removeLater(task.id) : removeToday(task.id)), { danger: true }),
+  );
+
+  const firstEnabled = [...menu.querySelectorAll('button')].find(b => !b.disabled);
+  if (firstEnabled) firstEnabled.autofocus = true;
+
+  placeOnOpen(menu, more);
+  return [more, menu];
+}
+
+function divider() {
+  const hr = document.createElement('hr');
+  hr.setAttribute('role', 'presentation');
+  return hr;
+}
+
+/** Popovers live in the top layer, so they clear the panel's own overflow —
+ *  but nothing positions them. Size is known from CSS, so this can run
+ *  synchronously in beforetoggle and never paint at the wrong spot. */
+function placeOnOpen(menu, anchor) {
+  const W = 172, H = 150;
+  menu.addEventListener('beforetoggle', (e) => {
+    anchor.setAttribute('aria-expanded', String(e.newState === 'open'));
+    if (e.newState !== 'open') return;
+    const r = anchor.getBoundingClientRect();
+    const left = Math.max(8, Math.min(r.right - W, innerWidth - W - 8));
+    const below = r.bottom + 6;
+    const top = below + H > innerHeight - 8 ? Math.max(8, r.top - H - 6) : below;
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+  });
+
+  // Arrow keys are what a menu is expected to answer to.
+  menu.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Home' && e.key !== 'End') return;
+    const items = [...menu.querySelectorAll('button:not(:disabled)')];
+    if (!items.length) return;
+    e.preventDefault();
+    const at = items.indexOf(document.activeElement);
+    const next = e.key === 'Home' ? 0
+      : e.key === 'End' ? items.length - 1
+      : e.key === 'ArrowDown' ? (at + 1) % items.length
+      : (at - 1 + items.length) % items.length;
+    items[next].focus();
   });
 }
 
@@ -207,16 +288,6 @@ function estButton(task) {
     else { delete task.est; }
     commit();
   });
-  return b;
-}
-
-function actionButton(label, glyph, onClick) {
-  const b = document.createElement('button');
-  b.type = 'button';
-  b.textContent = glyph;
-  b.title = label;
-  b.setAttribute('aria-label', label);
-  b.addEventListener('click', onClick);
   return b;
 }
 
