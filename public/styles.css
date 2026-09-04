@@ -197,9 +197,10 @@ html[data-wallpaper] {
 .topbar-weather .weather-temp { color: var(--ink); font-weight: 600; }
 
 .topbar-clock {
-  font-size: 20px;
+  font-size: clamp(28px, 2.2vw, 38px);
   font-weight: 700;
-  letter-spacing: -0.02em;
+  line-height: 1;
+  letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
 }
